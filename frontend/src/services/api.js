@@ -1,10 +1,11 @@
-// ============================================
-// services/api.js - خدمة الـ API
-// ============================================
-
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// تحديد الرابط تلقائياً: إذا كنت لوكل يقرأ الـ localhost، وإذا أونلاين يقرأ سيرفر Render مع الـ /api
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+const API_URL = isLocalhost 
+  ? 'http://localhost:5000/api' 
+  : 'https://admin-dashboard-8emj.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
