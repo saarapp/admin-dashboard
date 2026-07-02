@@ -4,9 +4,10 @@
   "description": "نظام الإنذارات والخصومات والتعويضات",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
-  },
+  "start": "node server.js",
+  "dev": "nodemon server.js",
+  "postinstall": "puppeteer browsers install chrome"
+},
   "dependencies": {
     "@supabase/supabase-js": "^2.26.0",
     "bcryptjs": "^3.0.3",
