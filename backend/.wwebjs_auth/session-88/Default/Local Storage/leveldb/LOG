@@ -1,0 +1,6 @@
+2026/07/02-19:26:17.459 3480 Reusing MANIFEST C:\Users\HP\Desktop\admin-dashboard\backend\.wwebjs_auth\session-88\Default\Local Storage\leveldb/MANIFEST-000001
+2026/07/02-19:26:17.463 3480 Recovering log #3
+2026/07/02-19:26:17.464 3480 Reusing old log C:\Users\HP\Desktop\admin-dashboard\backend\.wwebjs_auth\session-88\Default\Local Storage\leveldb/000003.log 
+2026/07/02-19:27:17.485 3dfc Level-0 table #5: started
+2026/07/02-19:27:17.503 3dfc Level-0 table #5: 17636 bytes OK
+2026/07/02-19:27:17.505 3dfc Delete type=0 #3
