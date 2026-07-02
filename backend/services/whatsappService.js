@@ -24,10 +24,7 @@ class WhatsappService {
       authStrategy: new LocalAuth({ clientId: sessionId }),
       puppeteer: {
         headless: true,
-        // إجبار بوبيتير على استخدام كروما المكتشف في ريندر أونلاين، واستخدام الافتراضي محلياً
-        executablePath: process.env.RENDER_DISCOVERY_SERVICE_CHROME === 'true' 
-          ? '/usr/bin/google-chrome' 
-          : undefined,
+        // مسحنا المسار القديم وتركنا بوبيتير يقرأ المتصفح الذي قام بتحميله تلقائياً داخل مجلد node_modules
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -35,7 +32,7 @@ class WhatsappService {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--single-process', // لتخفيف استهلاك الرام من المتصفح الخفي ومنع انهيار السيرفر المجاني
+          '--single-process', // ضروري جداً لمنع انهيار السيرفر المجاني بسبب الرام
           '--disable-gpu'
         ]
       }
