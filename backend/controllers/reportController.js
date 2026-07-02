@@ -183,3 +183,29 @@ class ReportController {
       let appealStats = { pending: 0, approved: 0, rejected: 0 };
       if (appeals) {
         appeals.forEach(a => {
+          appealStats[a.status] = (appealStats[a.status] || 0) + 1;
+        });
+      }
+
+      res.json({
+        status: 'success',
+        data: {
+          month: reportMonth,
+          year: reportYear,
+          stats,
+          dailyStats,
+          topCaptains,
+          appealStats,
+          totalRecords: records.length
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  }
+}
+
+module.exports = ReportController;
