@@ -2,7 +2,7 @@
 // server.js - الملف الرئيسي (Production Ready - Fixed CORS)
 // ============================================
 
-const express = require('require');
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
