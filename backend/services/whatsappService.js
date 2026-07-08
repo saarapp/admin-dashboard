@@ -12,7 +12,8 @@ class WhatsappService {
     this.statuses = {};
   }
 
- // إنشاء جلسة واتساب جديدة
+ /// إنشاء جلسة واتساب جديدة
+  // إنشاء جلسة واتساب جديدة
   async createSession(sessionId, phoneNumber) {
     if (this.clients[sessionId]) {
       return { status: 'exists', message: 'الجلسة موجودة بالفعل' };
@@ -24,8 +25,8 @@ class WhatsappService {
       authStrategy: new LocalAuth({ clientId: sessionId }),
       puppeteer: {
         headless: true,
-        // تحديد مسار الكروميوم المثبت أونلاين في ريلوي لتفادي تحميل حزم جديدة
-        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/chromium-browser' : undefined,
+        // توجيه الحزمة للمسار الصحيح للكروميوم المثبت عبر aptPackages في ريلوي
+        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/chromium' : undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -33,7 +34,7 @@ class WhatsappService {
           '--disable-gpu',
           '--no-first-run',
           '--no-zygote',
-          '--single-process', // ضروري جداً لتقليل استهلاك الرام داخل حاويات ريلوي الصغيرة
+          '--single-process', // ضروري لتقليل استهلاك الرام داخل ريلوي
           '--disable-extensions'
         ]
       }
