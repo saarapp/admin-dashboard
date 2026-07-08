@@ -24,15 +24,10 @@ class WhatsappService {
       authStrategy: new LocalAuth({ clientId: sessionId }),
       puppeteer: {
         headless: true,
-        // مسحنا المسار القديم وتركنا بوبيتير يقرأ المتصفح الذي قام بتحميله تلقائياً داخل مجلد node_modules
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process', // ضروري جداً لمنع انهيار السيرفر المجاني بسبب الرام
           '--disable-gpu'
         ]
       }

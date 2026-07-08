@@ -265,6 +265,52 @@ class RecordController {
       throw error;
     }
   }
-  }
  
+  // حذف البيانات من تاريخ إلى تاريخ
+  static async deleteRange(req, res) {
+    try {
+      const { from, to, type } = req.body;
+      const supabase = require('../config/supabase');
+
+      const startDate = from + 'T00:00:00';
+      const endDate = to + 'T23:59:59';
+
+      let deletedRecords = 0;
+      let deletedNotifications = 0;
+
+      if (type === 'records' || type === 'all') {
+        const { data } = await supabase
+          .from('records')
+          .delete()
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .select();
+        deletedRecords = data?.length || 0;
+      }
+
+      if (type === 'notifications' || type === 'all') {
+        const { data } = await supabase
+          .from('notifications')
+          .delete()
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .select();
+        deletedNotifications = data?.length || 0;
+      }
+
+      res.json({
+        status: 'success',
+        message: 'تم حذف البيانات',
+        data: { deletedRecords, deletedNotifications }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  }
+    }
+
+
 module.exports = RecordController;

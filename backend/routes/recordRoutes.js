@@ -31,6 +31,8 @@ router.post('/', RecordController.createRecord);
 
 // تحديث سجل
 router.put('/:id', RecordController.updateRecord);
+// حذف بيانات من تاريخ إلى تاريخ (مدير فقط)
+router.post('/delete-range', AuthMiddleware.requireAdmin, RecordController.deleteRange);
 
 // حذف سجل
 router.delete('/:id', RecordController.deleteRecord);

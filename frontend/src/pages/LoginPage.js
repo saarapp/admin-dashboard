@@ -1,7 +1,3 @@
-// ============================================
-// pages/LoginPage.js - صفحة تسجيل الدخول
-// ============================================
-
 import React, { useState } from 'react';
 import api from '../services/api';
 
@@ -15,15 +11,10 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       const response = await api.post('/auth/login', { email, password });
-      
-      // حفظ التوكن
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      // إعادة التوجيه للصفحة الرئيسية
       window.location.href = '/dashboard';
     } catch (err) {
       setError(err.response?.data?.message || 'خطأ في تسجيل الدخول');
@@ -34,117 +25,87 @@ function LoginPage() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>لوحة التحكم</h1>
-        <h2 style={styles.subtitle}>تسجيل الدخول</h2>
-
-        {error && <div style={styles.error}>{error}</div>}
-
-        <form onSubmit={handleLogin} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>البريد الإلكتروني:</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={styles.input}
-              placeholder="ادخل بريدك"
-            />
+      <div style={styles.leftPanel}>
+        <div style={styles.overlay}>
+          <h1 style={styles.brandTitle}>لوحة التحكم</h1>
+          <p style={styles.brandDesc}>نظام إدارة متكامل للإنذارات والخصومات والتعويضات</p>
+          <div style={styles.features}>
+            <div style={styles.feature}>✅ إدارة الكابتنات</div>
+            <div style={styles.feature}>📱 ربط الواتساب</div>
+            <div style={styles.feature}>📊 تقارير متقدمة</div>
+            <div style={styles.feature}>⚖️ نظام الطعون</div>
           </div>
+        </div>
+      </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>كلمة المرور:</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={styles.input}
-              placeholder="ادخل كلمة المرور"
-            />
-          </div>
+      <div style={styles.rightPanel}>
+        <div style={styles.formContainer}>
+          <div style={styles.logoCircle}>🔐</div>
+          <h2 style={styles.title}>بصمة الابداع</h2>
+          <p style={styles.subtitle}>سجّل دخولك للمتابعة</p>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={styles.button}
-          >
-            {loading ? 'جاري التحميل...' : 'دخول'}
-          </button>
-        </form>
+          {error && <div style={styles.error}>{error}</div>}
+
+          <form onSubmit={handleLogin}>
+            <div style={styles.inputWrapper}>
+              <span style={styles.inputIcon}>📧</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={styles.input}
+                placeholder="البريد الإلكتروني"
+              />
+            </div>
+
+            <div style={styles.inputWrapper}>
+              <span style={styles.inputIcon}>🔒</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={styles.input}
+                placeholder="كلمة المرور"
+              />
+            </div>
+
+            <button type="submit" disabled={loading} style={styles.button}>
+              {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
 
-const styles = {
-  container: {
+var styles = {
+  container: { display: 'flex', minHeight: '100vh', direction: 'rtl' },
+  leftPanel: {
+    flex: 1,
+    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
     display: 'flex',
-    justifyContent: 'center',
     alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-    direction: 'rtl'
+    justifyContent: 'center',
+    padding: '40px'
   },
-  card: {
-    backgroundColor: 'white',
-    padding: '40px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    width: '100%',
-    maxWidth: '400px'
-  },
-  title: {
-    textAlign: 'center',
-    color: '#333',
-    marginBottom: '10px'
-  },
-  subtitle: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: '30px',
-    fontSize: '16px'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  inputGroup: {
-    marginBottom: '20px'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    color: '#333',
-    fontWeight: 'bold'
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    fontSize: '14px',
-    boxSizing: 'border-box'
-  },
-  button: {
-    padding: '12px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  },
-  error: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    padding: '10px',
-    borderRadius: '5px',
-    marginBottom: '20px',
-    textAlign: 'center'
-  }
+  overlay: { textAlign: 'center', color: 'white', maxWidth: '400px' },
+  brandTitle: { fontSize: '36px', fontWeight: '800', marginBottom: '15px' },
+  brandDesc: { fontSize: '16px', color: 'rgba(255,255,255,0.8)', marginBottom: '40px', lineHeight: '1.8' },
+  features: { display: 'flex', flexDirection: 'column', gap: '15px' },
+  feature: { fontSize: '16px', color: 'rgba(255,255,255,0.9)', padding: '12px 20px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '10px' },
+  rightPanel: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backgroundColor: '#f8f9fa' },
+  formContainer: { width: '100%', maxWidth: '400px', textAlign: 'center' },
+  logoCircle: { width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '35px', margin: '0 auto 20px' },
+  title: { fontSize: '28px', fontWeight: '700', color: '#1a1a2e', marginBottom: '5px' },
+  subtitle: { fontSize: '14px', color: '#999', marginBottom: '30px' },
+  inputWrapper: { position: 'relative', marginBottom: '20px' },
+  inputIcon: { position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px' },
+  input: { width: '100%', padding: '15px 50px 15px 15px', border: '2px solid #e9ecef', borderRadius: '12px', fontSize: '15px', backgroundColor: 'white', transition: 'border 0.3s', outline: 'none', boxSizing: 'border-box' },
+  button: { width: '100%', padding: '15px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', transition: 'transform 0.2s' },
+  error: { backgroundColor: '#fff3f3', color: '#dc3545', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', border: '1px solid #ffcdd2' }
 };
 
 export default LoginPage;

@@ -1,17 +1,17 @@
-// ============================================
-// pages/RecordsPage.js - صفحة الغرامات والتعويضات
-// ============================================
-
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import s from '../sharedStyles';
 
 function RecordsPage() {
   const [captainName, setCaptainName] = useState('');
   const [captainPhone, setCaptainPhone] = useState('');
+  const [captainId, setCaptainId] = useState('');
+  const [captainStats, setCaptainStats] = useState(null);
+  const [captainBans, setCaptainBans] = useState([]);
   const [recordType, setRecordType] = useState('');
   const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
-  const [notes, setNotes] = useState('');
+  const [banDuration, setBanDuration] = useState('3');
+  const [banReason, setBanReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -20,345 +20,437 @@ function RecordsPage() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
 
-  useEffect(() => {
-    fetchRecentRecords();
-  }, []);
+  useEffect(function() { fetchRecentRecords(); }, []);
 
-  // جلب الرسائل المخصصة حسب النوع
-  const fetchTemplates = async (type) => {
-    try {
-      const response = await api.get(`/settings/messages/type/${type}`);
-      setTemplates(response.data.data);
+  function fetchTemplates(type) {
+    if (type === 'ban') return;
+    api.get('/settings/messages/type/' + type).then(function(res) {
+      setTemplates(res.data.data);
       setSelectedTemplate('');
-    } catch (error) {
-      setTemplates([]);
-      console.error('خطأ في جلب الرسائل:', error);
-    }
-  };
+    }).catch(function() { setTemplates([]); });
+  }
 
-  // عند تغيير نوع السجل
-  const handleTypeChange = (type) => {
+  function handleTypeChange(type) {
     setRecordType(type);
-    fetchTemplates(type);
-  };
+    if (type !== 'ban') {
+      fetchTemplates(type);
+    } else {
+      setTemplates([]);
+      setSelectedTemplate('');
+    }
+  }
 
-  // البحث عن كابتن أثناء الكتابة
-  const handleNameChange = async (value) => {
+  function handleNameChange(value) {
     setCaptainName(value);
-
+    setCaptainStats(null);
+    setCaptainBans([]);
+    setCaptainId('');
     if (value.length >= 2) {
-      try {
-        const response = await api.get(`/captains/search?name=${value}`);
-        setSuggestions(response.data.data);
-      } catch (error) {
-        setSuggestions([]);
-      }
+      api.get('/captains/search?name=' + value).then(function(res) {
+        setSuggestions(res.data.data);
+      }).catch(function() { setSuggestions([]); });
     } else {
       setSuggestions([]);
     }
-  };
+  }
 
-  // اختيار كابتن من الاقتراحات
-  const selectSuggestion = (captain) => {
+  function handlePhoneChange(value) {
+    setCaptainPhone(value);
+    setCaptainStats(null);
+    setCaptainBans([]);
+    setCaptainId('');
+    if (value.length >= 5) {
+      api.get('/captains/search?name=' + value).then(function(res) {
+        if (res.data.data.length > 0) {
+          setSuggestions(res.data.data);
+        }
+      }).catch(function() {});
+    }
+  }
+
+  function selectSuggestion(captain) {
     setCaptainName(captain.name);
     setCaptainPhone(captain.phone_number);
+    setCaptainId(captain.id);
     setSuggestions([]);
-  };
+    fetchCaptainDetails(captain.id);
+  }
 
-  // جلب آخر السجلات
-  const fetchRecentRecords = async () => {
-    try {
-      const response = await api.get('/records');
-      setRecentRecords(response.data.data.slice(0, 10));
-    } catch (error) {
-      console.error('خطأ في جلب السجلات:', error);
-    }
-  };
+  function fetchCaptainDetails(id) {
+    api.get('/captains/' + id + '/record').then(function(res) {
+      setCaptainStats(res.data.data.stats);
+    }).catch(function() {});
 
-  // إرسال السجل
-  const handleSubmit = async (e) => {
+    api.get('/bans/captain/' + id).then(function(res) {
+      setCaptainBans(res.data.data);
+    }).catch(function() {});
+  }
+
+  function fetchRecentRecords() {
+    api.get('/records').then(function(res) {
+      setRecentRecords(res.data.data.slice(0, 10));
+    }).catch(function() {});
+  }
+
+  function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     setMessage('');
     setError('');
 
-    try {
-      // أولاً: البحث عن الكابتن أو إنشاؤه
-      let captainId;
+    // إذا حظر
+    if (recordType === 'ban') {
+      handleBan();
+      return;
+    }
 
-      try {
-        const searchResponse = await api.get(`/captains/search?name=${captainName}`);
-        const existingCaptain = searchResponse.data.data.find(
-          c => c.phone_number === captainPhone
-        );
+    var findOrCreate = api.get('/captains/search?name=' + captainName)
+      .then(function(res) {
+        var existing = res.data.data.find(function(c) { return c.phone_number === captainPhone; });
+        if (existing) return existing.id;
+        return api.post('/captains', { name: captainName, phone_number: captainPhone })
+          .then(function(r) { return r.data.data.id; });
+      })
+      .catch(function() {
+        return api.post('/captains', { name: captainName, phone_number: captainPhone })
+          .then(function(r) { return r.data.data.id; });
+      });
 
-        if (existingCaptain) {
-          captainId = existingCaptain.id;
-        } else {
-          const createResponse = await api.post('/captains', {
-            name: captainName,
-            phone_number: captainPhone
-          });
-          captainId = createResponse.data.data.id;
-        }
-      } catch (err) {
-        const createResponse = await api.post('/captains', {
-          name: captainName,
-          phone_number: captainPhone
-        });
-        captainId = createResponse.data.data.id;
-      }
-
-      // ثانياً: إنشاء السجل
-      const data = {
-        captain_id: captainId,
+    findOrCreate.then(function(cId) {
+      return api.post('/records', {
+        captain_id: cId,
         record_type: recordType,
         amount: amount ? parseFloat(amount) : null,
-        reason,
-        notes,
         template_id: selectedTemplate || null
-      };
-
-      await api.post('/records', data);
-
-      setMessage('تم التسجيل بنجاح! ✅');
-
-      // إعادة تعيين النموذج
-      setCaptainName('');
-      setCaptainPhone('');
-      setRecordType('');
-      setAmount('');
-      setReason('');
-      setNotes('');
-      setSuggestions([]);
-      setTemplates([]);
-      setSelectedTemplate('');
-
-      // تحديث السجلات
+      });
+    }).then(function() {
+      setMessage('✅ تم التسجيل بنجاح!');
+      resetForm();
       fetchRecentRecords();
-    } catch (err) {
+    }).catch(function(err) {
       setError(err.response?.data?.message || 'حدث خطأ');
-    } finally {
-      setLoading(false);
-    }
-  };
+    }).finally(function() { setLoading(false); });
+  }
 
-  // ترجمة نوع السجل
-  const getTypeLabel = (type) => {
-    switch (type) {
-      case 'warning': return 'إنذار';
-      case 'deduction': return 'خصم';
-      case 'compensation': return 'تعويض';
-      default: return type;
-    }
-  };
+  function handleBan() {
+    var findOrCreate = api.get('/captains/search?name=' + captainName)
+      .then(function(res) {
+        var existing = res.data.data.find(function(c) { return c.phone_number === captainPhone; });
+        if (existing) return existing.id;
+        return api.post('/captains', { name: captainName, phone_number: captainPhone })
+          .then(function(r) { return r.data.data.id; });
+      })
+      .catch(function() {
+        return api.post('/captains', { name: captainName, phone_number: captainPhone })
+          .then(function(r) { return r.data.data.id; });
+      });
 
-  // لون نوع السجل
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'warning': return '#ffc107';
-      case 'deduction': return '#dc3545';
-      case 'compensation': return '#28a745';
-      default: return '#666';
-    }
-  };
+    findOrCreate.then(function(cId) {
+      return api.post('/bans', {
+        captain_id: cId,
+        captain_name: captainName,
+        captain_phone: captainPhone,
+        reason: banReason,
+        duration_days: parseInt(banDuration)
+      });
+    }).then(function() {
+      setMessage('✅ تم حظر الكابتن وإرسال رسالة!');
+      resetForm();
+    }).catch(function(err) {
+      setError(err.response?.data?.message || 'حدث خطأ');
+    }).finally(function() { setLoading(false); });
+  }
+
+  function resetForm() {
+    setCaptainName(''); setCaptainPhone(''); setCaptainId('');
+    setCaptainStats(null); setCaptainBans([]);
+    setRecordType(''); setAmount(''); setBanDuration('3'); setBanReason('');
+    setSuggestions([]); setTemplates([]); setSelectedTemplate('');
+  }
+
+  function getTypeLabel(type) {
+    if (type === 'warning') return 'إنذار';
+    if (type === 'deduction') return 'خصم';
+    if (type === 'compensation') return 'تعويض';
+    return type;
+  }
+
+  function getTypeGradient(type) {
+    if (type === 'warning') return 'linear-gradient(135deg, #ffc400, #ffab00)';
+    if (type === 'deduction') return 'linear-gradient(135deg, #ff1744, #ff5252)';
+    if (type === 'compensation') return 'linear-gradient(135deg, #00c853, #00e676)';
+    return '#666';
+  }
 
   return (
-    <div style={styles.container}>
-      <h2>تسجيل غرامة / تعويض / إنذار</h2>
+    <div style={s.pageContainer}>
+      <div style={s.pageHeader}>
+        <h2 style={s.pageTitle}>📝 تسجيل غرامة / تعويض / إنذار / حظر</h2>
+      </div>
 
-      {/* رسائل النجاح والخطأ */}
-      {message && <div style={styles.success}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {message && <div style={s.success}>{message}</div>}
+      {error && <div style={s.error}>{error}</div>}
 
-      {/* النموذج */}
-      <div style={styles.formCard}>
-        <form onSubmit={handleSubmit}>
-          {/* اسم الكابتن */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>اسم الكابتن:</label>
-            <div style={styles.autocomplete}>
-              <input
-                type="text"
-                value={captainName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                required
-                style={styles.input}
-                placeholder="اكتب اسم الكابتن..."
-              />
-              {suggestions.length > 0 && (
-                <div style={styles.suggestions}>
-                  {suggestions.map((captain) => (
-                    <div
-                      key={captain.id}
-                      style={styles.suggestionItem}
-                      onClick={() => selectSuggestion(captain)}
-                    >
-                      <strong>{captain.name}</strong>
-                      <span style={styles.suggestionPhone}>{captain.phone_number}</span>
-                    </div>
-                  ))}
+      <div style={{display: 'flex', gap: '20px', flexWrap: 'wrap'}}>
+        {/* النموذج */}
+        <div style={{...s.card, flex: 2, minWidth: '350px'}}>
+          <form onSubmit={handleSubmit}>
+            {/* اسم الكابتن */}
+            <div style={s.inputGroup}>
+              <label style={s.label}>اسم الكابتن:</label>
+              <div style={{position: 'relative'}}>
+                <input type="text" value={captainName}
+                  onChange={function(e) { handleNameChange(e.target.value); }}
+                  required style={s.input} placeholder="اكتب اسم الكابتن..." />
+                {suggestions.length > 0 && (
+                  <div style={styles.suggestions}>
+                    {suggestions.map(function(captain) {
+                      return (
+                        <div key={captain.id} onClick={function() { selectSuggestion(captain); }} style={styles.suggestionItem}>
+                          <div>
+                            <strong style={{color: '#1a1a2e'}}>{captain.name}</strong>
+                            <span style={{display: 'block', fontSize: '12px', color: '#999'}}>{captain.phone_number}</span>
+                          </div>
+                          <span style={{color: '#667eea', fontSize: '13px'}}>اختيار ←</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* رقم الهاتف */}
+            <div style={s.inputGroup}>
+              <label style={s.label}>رقم الهاتف:</label>
+              <input type="text" value={captainPhone}
+                onChange={function(e) { handlePhoneChange(e.target.value); }}
+                required style={s.input} placeholder="07xxxxxxxxx" />
+            </div>
+
+            {/* نوع السجل */}
+            <div style={s.inputGroup}>
+              <label style={s.label}>النوع:</label>
+              <div style={styles.typeButtons}>
+                <div onClick={function() { handleTypeChange('warning'); }}
+                  style={{...styles.typeCard, border: recordType === 'warning' ? '3px solid #ffc400' : '3px solid #e9ecef',
+                    background: recordType === 'warning' ? 'linear-gradient(135deg, #fff8e1, #fff3e0)' : 'white'}}>
+                  <span style={{fontSize: '26px'}}>⚠️</span>
+                  <span style={{fontWeight: '700', fontSize: '13px', color: recordType === 'warning' ? '#f57f17' : '#999'}}>إنذار</span>
+                </div>
+                <div onClick={function() { handleTypeChange('deduction'); }}
+                  style={{...styles.typeCard, border: recordType === 'deduction' ? '3px solid #ff1744' : '3px solid #e9ecef',
+                    background: recordType === 'deduction' ? 'linear-gradient(135deg, #ffebee, #fce4ec)' : 'white'}}>
+                  <span style={{fontSize: '26px'}}>➖</span>
+                  <span style={{fontWeight: '700', fontSize: '13px', color: recordType === 'deduction' ? '#c62828' : '#999'}}>خصم</span>
+                </div>
+                <div onClick={function() { handleTypeChange('compensation'); }}
+                  style={{...styles.typeCard, border: recordType === 'compensation' ? '3px solid #00c853' : '3px solid #e9ecef',
+                    background: recordType === 'compensation' ? 'linear-gradient(135deg, #e8f5e9, #f1f8e9)' : 'white'}}>
+                  <span style={{fontSize: '26px'}}>➕</span>
+                  <span style={{fontWeight: '700', fontSize: '13px', color: recordType === 'compensation' ? '#2e7d32' : '#999'}}>تعويض</span>
+                </div>
+                <div onClick={function() { handleTypeChange('ban'); }}
+                  style={{...styles.typeCard, border: recordType === 'ban' ? '3px solid #ff1744' : '3px solid #e9ecef',
+                    background: recordType === 'ban' ? 'linear-gradient(135deg, #fce4ec, #f8bbd0)' : 'white'}}>
+                  <span style={{fontSize: '26px'}}>🚫</span>
+                  <span style={{fontWeight: '700', fontSize: '13px', color: recordType === 'ban' ? '#b71c1c' : '#999'}}>حظر</span>
+                </div>
+              </div>
+            </div>
+
+            {/* خيارات الحظر */}
+            {recordType === 'ban' && (
+              <div>
+                <div style={s.inputGroup}>
+                  <label style={s.label}>مدة الحظر:</label>
+                  <div style={styles.durationButtons}>
+                    {[
+                      {value: '3', label: '3 أيام'},
+                      {value: '7', label: 'أسبوع'},
+                      {value: '14', label: 'أسبوعين'},
+                      {value: '30', label: 'شهر'}
+                    ].map(function(d) {
+                      return (
+                        <button key={d.value} type="button" onClick={function() { setBanDuration(d.value); }}
+                          style={{...styles.durationBtn,
+                            backgroundColor: banDuration === d.value ? '#ff1744' : '#f8f9fa',
+                            color: banDuration === d.value ? 'white' : '#333',
+                            border: banDuration === d.value ? '2px solid #ff1744' : '2px solid #e9ecef'}}>
+                          {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={s.inputGroup}>
+                  <label style={s.label}>سبب الحظر:</label>
+                  <input type="text" value={banReason}
+                    onChange={function(e) { setBanReason(e.target.value); }}
+                    style={s.input} placeholder="سبب الحظر..." />
+                </div>
+              </div>
+            )}
+
+            {/* اختيار الرسالة */}
+            {recordType && recordType !== 'ban' && templates.length > 0 && (
+              <div style={s.inputGroup}>
+                <label style={s.label}>اختر الرسالة:</label>
+                <div style={styles.templatesList}>
+                  {templates.map(function(template) {
+                    var isSelected = selectedTemplate === template.id;
+                    return (
+                      <div key={template.id} onClick={function() { setSelectedTemplate(template.id); }}
+                        style={{...styles.templateCard,
+                          border: isSelected ? '2px solid #667eea' : '2px solid #e9ecef',
+                          backgroundColor: isSelected ? '#f0f4ff' : 'white'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                          {isSelected && <span style={{color: '#667eea', fontSize: '18px'}}>✓</span>}
+                          <div>
+                            <span style={{fontWeight: '700', color: '#1a1a2e', fontSize: '14px'}}>{template.title}</span>
+                            <p style={{margin: '4px 0 0 0', fontSize: '12px', color: '#999'}}>
+                              {template.message_content.substring(0, 60)}...
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {recordType && recordType !== 'ban' && templates.length === 0 && (
+              <div style={{...s.hint, borderRightColor: '#ffc400', backgroundColor: '#fffde7'}}>
+                ⚠️ لا توجد رسائل مخصصة لهذا النوع. أضفها من الإعدادات أولاً.
+              </div>
+            )}
+
+            {/* المبلغ */}
+            {(recordType === 'deduction' || recordType === 'compensation') && (
+              <div style={s.inputGroup}>
+                <label style={s.label}>المبلغ:</label>
+                <input type="number" value={amount}
+                  onChange={function(e) { setAmount(e.target.value); }}
+                  required style={s.input} placeholder="ادخل المبلغ" />
+              </div>
+            )}
+
+            {/* زر الإرسال */}
+            <button type="submit"
+              disabled={loading || !captainName || !captainPhone || !recordType || (recordType !== 'ban' && !selectedTemplate)}
+              style={{...s.btnPrimary, ...s.btnFull,
+                background: recordType === 'ban' ? 'linear-gradient(135deg, #ff1744, #d50000)' : s.btnPrimary.background,
+                opacity: loading || !captainName || !captainPhone || !recordType ? 0.5 : 1}}>
+              {loading ? 'جاري التسجيل...' : recordType === 'ban' ? '🚫 تنفيذ الحظر' : '✅ تسجيل'}
+            </button>
+          </form>
+        </div>
+
+        {/* تفاصيل الكابتن */}
+        <div style={{flex: 1, minWidth: '280px'}}>
+          {captainStats ? (
+            <div style={s.card}>
+              <h3 style={{...s.sectionTitle, marginTop: 0}}>👤 تفاصيل الكابتن</h3>
+              <div style={styles.captainInfo}>
+                <div style={styles.captainAvatar}>
+                  {captainName.charAt(0)}
+                </div>
+                <div>
+                  <h4 style={{margin: '0 0 4px 0', color: '#1a1a2e'}}>{captainName}</h4>
+                  <span style={{fontSize: '13px', color: '#999'}}>{captainPhone}</span>
+                </div>
+              </div>
+
+              <div style={styles.miniStats}>
+                <div style={styles.miniStat}>
+                  <span style={styles.miniIcon}>⚠️</span>
+                  <div>
+                    <span style={styles.miniLabel}>إنذارات</span>
+                    <span style={styles.miniNumber}>{captainStats.warnings || 0}</span>
+                  </div>
+                </div>
+                <div style={styles.miniStat}>
+                  <span style={styles.miniIcon}>➖</span>
+                  <div>
+                    <span style={styles.miniLabel}>خصومات</span>
+                    <span style={styles.miniNumber}>{captainStats.totalDeductions || 0}</span>
+                  </div>
+                </div>
+                <div style={styles.miniStat}>
+                  <span style={styles.miniIcon}>➕</span>
+                  <div>
+                    <span style={styles.miniLabel}>تعويضات</span>
+                    <span style={styles.miniNumber}>{captainStats.totalCompensations || 0}</span>
+                  </div>
+                </div>
+                <div style={{...styles.miniStat, borderRight: captainStats.balance >= 0 ? '4px solid #00c853' : '4px solid #ff1744'}}>
+                  <span style={styles.miniIcon}>💰</span>
+                  <div>
+                    <span style={styles.miniLabel}>الرصيد</span>
+                    <span style={{...styles.miniNumber, color: captainStats.balance >= 0 ? '#00c853' : '#ff1744'}}>
+                      {captainStats.balance || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* حالة الحظر */}
+              {captainBans.length > 0 && (
+                <div style={styles.banAlert}>
+                  <span style={{fontSize: '20px'}}>🚫</span>
+                  <div>
+                    <strong style={{color: '#b71c1c'}}>محظور حالياً</strong>
+                    <p style={{margin: '3px 0 0 0', fontSize: '12px', color: '#c62828'}}>
+                      ينتهي: {new Date(captainBans[0].ban_end).toLocaleDateString('ar-IQ')}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-
-          {/* رقم الهاتف */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>رقم الهاتف:</label>
-            <input
-              type="text"
-              value={captainPhone}
-              onChange={(e) => setCaptainPhone(e.target.value)}
-              required
-              style={styles.input}
-              placeholder="مثال: 9647801234567"
-            />
-          </div>
-
-          {/* نوع السجل */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>النوع:</label>
-            <div style={styles.typeButtons}>
-              <button
-                type="button"
-                onClick={() => handleTypeChange('warning')}
-                style={{
-                  ...styles.typeBtn,
-                  backgroundColor: recordType === 'warning' ? '#ffc107' : '#f8f9fa',
-                  color: recordType === 'warning' ? 'white' : '#333'
-                }}
-              >
-                ⚠️ إنذار
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTypeChange('deduction')}
-                style={{
-                  ...styles.typeBtn,
-                  backgroundColor: recordType === 'deduction' ? '#dc3545' : '#f8f9fa',
-                  color: recordType === 'deduction' ? 'white' : '#333'
-                }}
-              >
-                ➖ خصم
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTypeChange('compensation')}
-                style={{
-                  ...styles.typeBtn,
-                  backgroundColor: recordType === 'compensation' ? '#28a745' : '#f8f9fa',
-                  color: recordType === 'compensation' ? 'white' : '#333'
-                }}
-              >
-                ➕ تعويض
-              </button>
-            </div>
-          </div>
-
-          {/* اختيار الرسالة المخصصة */}
-          {recordType && templates.length > 0 && (
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>اختر الرسالة:</label>
-              <div style={styles.templatesList}>
-                {templates.map((template) => (
-                  <div
-                    key={template.id}
-                    onClick={() => setSelectedTemplate(template.id)}
-                    style={{
-                      ...styles.templateItem,
-                      border: selectedTemplate === template.id
-                        ? `2px solid ${getTypeColor(recordType)}`
-                        : '2px solid #eee',
-                      backgroundColor: selectedTemplate === template.id
-                        ? '#f8f9fa'
-                        : 'white'
-                    }}
-                  >
-                    <div style={styles.templateTitle}>
-                      {selectedTemplate === template.id && '✅ '}
-                      {template.title}
-                    </div>
-                    <div style={styles.templatePreview}>
-                      {template.message_content.substring(0, 80)}...
-                    </div>
-                  </div>
-                ))}
-              </div>
+          ) : (
+            <div style={{...s.card, textAlign: 'center', padding: '40px 20px'}}>
+              <span style={{fontSize: '50px', display: 'block', marginBottom: '10px'}}>👤</span>
+              <p style={{color: '#bbb', fontSize: '14px'}}>اكتب اسم أو رقم الكابتن لعرض التفاصيل</p>
             </div>
           )}
-
-          {/* لا توجد رسائل */}
-          {recordType && templates.length === 0 && (
-            <div style={styles.noTemplates}>
-              ⚠️ لا توجد رسائل مخصصة لهذا النوع. أضفها من الإعدادات أولاً.
-            </div>
-          )}
-
-          {/* المبلغ (فقط للخصم والتعويض) */}
-          {(recordType === 'deduction' || recordType === 'compensation') && (
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>المبلغ:</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                style={styles.input}
-                placeholder="ادخل المبلغ"
-              />
-            </div>
-          )}
-
-          {/* زر الإرسال */}
-          <button
-            type="submit"
-            disabled={loading || !captainName || !captainPhone || !recordType || !selectedTemplate}
-            style={{
-              ...styles.submitBtn,
-              opacity: loading || !captainName || !captainPhone || !recordType || !selectedTemplate ? 0.6 : 1
-            }}
-          >
-            {loading ? 'جاري التسجيل...' : 'تسجيل'}
-          </button>
-        </form>
+        </div>
       </div>
 
       {/* آخر السجلات */}
-      <div style={styles.recentCard}>
-        <h3>آخر السجلات</h3>
+      <div style={s.card}>
+        <h3 style={{...s.sectionTitle, marginTop: 0}}>📋 آخر السجلات</h3>
         {recentRecords.length === 0 ? (
-          <p>لا توجد سجلات بعد</p>
+          <p style={s.noData}>لا توجد سجلات بعد</p>
         ) : (
-          <table style={styles.table}>
+          <table style={s.table}>
             <thead>
               <tr>
-                <th style={styles.th}>الكابتن</th>
-                <th style={styles.th}>النوع</th>
-                <th style={styles.th}>المبلغ</th>
-                <th style={styles.th}>السبب</th>
-                <th style={styles.th}>التاريخ</th>
+                <th style={s.th}>الكابتن</th>
+                <th style={s.th}>النوع</th>
+                <th style={s.th}>المبلغ</th>
+                <th style={s.th}>التاريخ</th>
               </tr>
             </thead>
             <tbody>
-              {recentRecords.map((record) => (
-                <tr key={record.id}>
-                  <td style={styles.td}>{record.captains?.name || '-'}</td>
-                  <td style={styles.td}>
-                    <span style={{
-                      ...styles.badge,
-                      backgroundColor: getTypeColor(record.record_type)
-                    }}>
-                      {getTypeLabel(record.record_type)}
-                    </span>
-                  </td>
-                  <td style={styles.td}>{record.amount || '-'}</td>
-                  <td style={styles.td}>{record.reason || '-'}</td>
-                  <td style={styles.td}>
-                    {new Date(record.created_at).toLocaleDateString('ar-IQ')}
-                  </td>
-                </tr>
-              ))}
+              {recentRecords.map(function(record) {
+                return (
+                  <tr key={record.id}>
+                    <td style={s.td}>
+                      <span style={{fontWeight: '600', color: '#1a1a2e'}}>{record.captains?.name || '-'}</span>
+                    </td>
+                    <td style={s.td}>
+                      <span style={{...s.badge, background: getTypeGradient(record.record_type)}}>
+                        {getTypeLabel(record.record_type)}
+                      </span>
+                    </td>
+                    <td style={s.td}>{record.amount || '-'}</td>
+                    <td style={{...s.td, color: '#999', fontSize: '12px'}}>
+                      {new Date(record.created_at).toLocaleDateString('ar-IQ')}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -367,173 +459,23 @@ function RecordsPage() {
   );
 }
 
-const styles = {
-  container: {
-    padding: '20px',
-    direction: 'rtl'
-  },
-  formCard: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-    marginTop: '20px'
-  },
-  inputGroup: {
-    marginBottom: '20px'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    fontWeight: 'bold',
-    color: '#333'
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    fontSize: '14px',
-    boxSizing: 'border-box'
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    fontSize: '14px',
-    minHeight: '80px',
-    boxSizing: 'border-box'
-  },
-  autocomplete: {
-    position: 'relative'
-  },
-  suggestions: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    border: '1px solid #ddd',
-    borderRadius: '0 0 5px 5px',
-    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-    zIndex: 10,
-    maxHeight: '200px',
-    overflowY: 'auto'
-  },
-  suggestionItem: {
-    padding: '10px 15px',
-    cursor: 'pointer',
-    borderBottom: '1px solid #eee',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  suggestionPhone: {
-    color: '#666',
-    fontSize: '13px'
-  },
-  typeButtons: {
-    display: 'flex',
-    gap: '10px'
-  },
-  typeBtn: {
-    flex: 1,
-    padding: '12px',
-    border: '2px solid #ddd',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    transition: 'all 0.3s'
-  },
-  templatesList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px'
-  },
-  templateItem: {
-    padding: '15px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.3s'
-  },
-  templateTitle: {
-    fontWeight: 'bold',
-    fontSize: '15px',
-    color: '#333',
-    marginBottom: '5px'
-  },
-  templatePreview: {
-    fontSize: '13px',
-    color: '#666'
-  },
-  noTemplates: {
-    padding: '15px',
-    backgroundColor: '#fff3cd',
-    color: '#856404',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center'
-  },
-  submitBtn: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  },
-  success: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    padding: '10px',
-    borderRadius: '5px',
-    marginTop: '10px',
-    textAlign: 'center'
-  },
-  error: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    padding: '10px',
-    borderRadius: '5px',
-    marginTop: '10px',
-    textAlign: 'center'
-  },
-  recentCard: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-    marginTop: '20px'
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginTop: '10px'
-  },
-  th: {
-    backgroundColor: '#f8f9fa',
-    padding: '12px',
-    textAlign: 'right',
-    borderBottom: '2px solid #ddd',
-    color: '#333'
-  },
-  td: {
-    padding: '12px',
-    borderBottom: '1px solid #eee',
-    textAlign: 'right'
-  },
-  badge: {
-    padding: '4px 10px',
-    borderRadius: '15px',
-    color: 'white',
-    fontSize: '12px',
-    fontWeight: 'bold'
-  }
+var styles = {
+  suggestions: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '2px solid #e9ecef', borderRadius: '0 0 12px 12px', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '200px', overflowY: 'auto' },
+  suggestionItem: { padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  typeButtons: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' },
+  typeCard: { padding: '16px 10px', borderRadius: '14px', cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', transition: 'all 0.3s' },
+  templatesList: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  templateCard: { padding: '14px 18px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.3s' },
+  durationButtons: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
+  durationBtn: { padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', transition: 'all 0.3s' },
+  captainInfo: { display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '12px' },
+  captainAvatar: { width: '50px', height: '50px', borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '20px', flexShrink: 0 },
+  miniStats: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  miniStat: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '10px', borderRight: '4px solid #e9ecef' },
+  miniIcon: { fontSize: '22px' },
+  miniLabel: { display: 'block', fontSize: '12px', color: '#999' },
+  miniNumber: { display: 'block', fontSize: '20px', fontWeight: '800', color: '#1a1a2e' },
+  banAlert: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', backgroundColor: '#ffebee', borderRadius: '10px', marginTop: '15px', border: '1px solid #ffcdd2' }
 };
 
 export default RecordsPage;

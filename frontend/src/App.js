@@ -12,8 +12,13 @@ import SearchPage from './pages/SearchPage';
 import SettingsPage from './pages/SettingsPage';
 import WhatsappPage from './pages/WhatsappPage';
 import AppealsPage from './pages/AppealsPage';
+import BannedPage from './pages/BannedPage';
 import ReportsPage from './pages/ReportsPage';
+import MarketingPage from './pages/MarketingPage';
+import TicketsPage from './pages/TicketsPage';
+import ChatPage from './pages/ChatPage';
 import Sidebar from './components/Sidebar';
+import Header from './components/Header';
 import './App.css';
 
 function App() {
@@ -49,35 +54,33 @@ function App() {
         <Sidebar />
         <div style={styles.content}>
           {/* Header */}
-          <header style={styles.header}>
-            <div style={styles.headerContent}>
-              <span>مرحباً، {JSON.parse(localStorage.getItem('user'))?.full_name}</span>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.location.href = '/login';
-                }}
-                style={styles.logoutBtn}
-              >
-                تسجيل خروج
-              </button>
-            </div>
-          </header>
+          <Header />
 
           {/* الصفحات */}
           <div style={styles.pageContent}>
             <Routes>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/records" element={<RecordsPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/whatsapp" element={<WhatsappPage />} />
-              <Route path="/appeals" element={<AppealsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-              <Route path="*" element={<Navigate to="/dashboard" />} />
+              {JSON.parse(localStorage.getItem('user'))?.role === 'admin' && (
+                <>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/records" element={<RecordsPage />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/whatsapp" element={<WhatsappPage />} />
+                  <Route path="/appeals" element={<AppealsPage />} />
+                  <Route path="/banned" element={<BannedPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/marketing" element={<MarketingPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </>
+              )}
+              <Route path="/tickets" element={<TicketsPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/" element={
+                <Navigate to={JSON.parse(localStorage.getItem('user'))?.role === 'admin' ? '/dashboard' : '/tickets'} />
+              } />
+              <Route path="*" element={
+                <Navigate to={JSON.parse(localStorage.getItem('user'))?.role === 'admin' ? '/dashboard' : '/tickets'} />
+              } />
             </Routes>
           </div>
         </div>

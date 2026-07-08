@@ -123,8 +123,18 @@ class AppealController {
         });
       }
 
-      // إرسال رسالة اعتذار
-      const message = `السلام عليكم ${appeal.captains?.name}\n\nنعتذر منك، تم قبول الطعن المقدم من قبلك وتم استرداد المبلغ.\n\nنعتذر عن أي إزعاج.\n\nمع التحية`;
+      // إرسال رسالة قبول الطعن
+const message = `مرحباً عزيزي ${appeal.captains?.name}
+
+✅ تم قبول الطعن المقدم من قبلك.
+
+تمت مراجعة طلبك، وقد تم اتخاذ الإجراءات التالية:
+• فك الحظر عن حسابك (إن وجد).
+• استرداد المبلغ المخصوم (إن وجد).
+
+نعتذر عن أي إزعاج، ونتمنى لك التوفيق.
+
+فريق صار - قسم المتابعه و الحسابات`;
 
       AppealController.sendAppealMessage(appeal.captain_phone, message)
         .then(() => console.log('✅ تم إرسال رسالة قبول الطعن'))
@@ -168,8 +178,16 @@ class AppealController {
       // رفض الطعن
       await Appeal.reject(id, userId);
 
-      // إرسال رسالة رفض
-      const message = `السلام عليكم ${appeal.captains?.name}\n\nنأسف لإبلاغك أن الطعن المقدم من قبلك غير مقبول وتم تغريمك.\n\nهذا قرار نهائي.\n\nمع التحية`;
+     // إرسال رسالة رفض
+const message = `مرحباً عزيزي ${appeal.captains?.name}
+
+❌ نعتذر لإبلاغك بأنه تم رفض الطعن المقدم من قبلك.
+
+بعد مراجعة الطلب، تقرر تثبيت الإجراء المتخذ بحق حسابك، ويُعد هذا القرار نهائياً.
+
+شكراً لتفهمك.
+
+فريق صار - قسم المتابعه و الحسابات`;
 
       AppealController.sendAppealMessage(appeal.captain_phone, message)
         .then(() => console.log('✅ تم إرسال رسالة رفض الطعن'))
@@ -224,7 +242,17 @@ class AppealController {
         return false;
       }
 
-      // جلب آخر سجل خصم خلال 24 ساعة
+      const Ban = require('../models/Ban');
+
+      // أولاً: البحث عن حظر نشط يقبل الطعن
+      const activeBans = await Ban.getActiveByCaptain(captain.id);
+      const activeBan = activeBans.find(b => {
+        if (!b.appeal_allowed) return false;
+        if (!b.appeal_deadline) return true;
+        return new Date(b.appeal_deadline) > new Date();
+      });
+
+      // ثانياً: البحث عن خصم خلال 24 ساعة
       const records = await Record.getByCaptain(captain.id);
       const yesterday = new Date();
       yesterday.setHours(yesterday.getHours() - 24);
@@ -234,33 +262,76 @@ class AppealController {
         new Date(r.created_at) > yesterday
       );
 
-      if (!recentDeduction) {
-        // إرسال رسالة أنه لا يوجد خصم للطعن عليه
-        const noRecordMsg = 'عذراً، لا يوجد خصم حديث يمكنك الطعن عليه أو انتهت مهلة الطعن (24 ساعة).';
-        await whatsappService.sendMessageWithLoadBalance(formattedPhone, noRecordMsg);
-        return true;
-      }
+      // إذا لا يوجد حظر ولا خصم
+if (!activeBan && !recentDeduction) {
+  const noRecordMsg = 'مرحباً عزيزي،\n\n'
+    + 'لا يوجد حالياً خصم أو حظر يمكنك تقديم طعن بشأنه، أو أن مدة تقديم الطعن قد انتهت.\n\n'
+    + 'فريق صار - قسم الحسابات';
+    
+  await whatsappService.sendMessageWithLoadBalance(formattedPhone, noRecordMsg);
+  return true;
+}
 
-      // التحقق من عدم وجود طعن سابق على نفس السجل
-      const existingAppeal = await Appeal.getByRecord(recentDeduction.id);
-      if (existingAppeal) {
-        const alreadyMsg = 'لقد قمت بتقديم طعن مسبقاً على هذا الخصم. سنعلمك بمجرد اتخاذ القرار.';
-        await whatsappService.sendMessageWithLoadBalance(formattedPhone, alreadyMsg);
-        return true;
+
+      // تحديد نوع الطعن (حظر أو خصم)
+      var appealRecordId = null;
+      var appealType = '';
+
+      if (activeBan) {
+        // طعن على الحظر
+        appealRecordId = activeBan.id;
+        appealType = 'ban';
+
+        // التحقق من عدم وجود طعن سابق
+        const existingAppeal = await Appeal.getByRecord(activeBan.id);
+        if (existingAppeal) {
+          const alreadyMsg = 'لقد قمت بتقديم طعن مسبقاً على هذا الحظر. سنعلمك بمجرد اتخاذ القرار.';
+          await whatsappService.sendMessageWithLoadBalance(formattedPhone, alreadyMsg);
+          return true;
+        }
+      } else {
+        // طعن على الخصم
+        appealRecordId = recentDeduction.id;
+        appealType = 'deduction';
+
+        // التحقق من عدم وجود طعن سابق
+        const existingAppeal = await Appeal.getByRecord(recentDeduction.id);
+        if (existingAppeal) {
+          const alreadyMsg = 'لقد قمت بتقديم طعن مسبقاً على هذا الخصم. سنعلمك بمجرد اتخاذ القرار.';
+          await whatsappService.sendMessageWithLoadBalance(formattedPhone, alreadyMsg);
+          return true;
+        }
       }
 
       // إنشاء الطعن
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
+      var expiresAt = new Date();
+      if (activeBan) {
+        // مهلة الطعن حسب الحظر (48 ساعة أو 3 أيام)
+        if (activeBan.duration_days <= 7) {
+          expiresAt.setHours(expiresAt.getHours() + 48);
+        } else {
+          expiresAt.setDate(expiresAt.getDate() + 3);
+        }
+      } else {
+        expiresAt.setHours(expiresAt.getHours() + 24);
+      }
 
-      await Appeal.create({
-        record_id: recentDeduction.id,
+     var appealData = {
         captain_id: captain.id,
         captain_phone: formattedPhone,
-        appeal_message: messageBody,
+        appeal_message: messageBody + (appealType === 'ban' ? ' (طعن على حظر)' : ' (طعن على خصم)'),
+        appeal_type: appealType,
         status: 'pending',
         expires_at: expiresAt
-      });
+      };
+
+      if (appealType === 'ban') {
+        appealData.ban_id = appealRecordId;
+      } else {
+        appealData.record_id = appealRecordId;
+      }
+
+      await Appeal.create(appealData);
 
       // إرسال رسالة تأكيد
       const confirmMsg = 'تم تحويل طلبك إلى القسم المختص.\n\nنرجو عدم إرسال رسائل إضافية.\n\nسنعلمك بمجرد اتخاذ القرار.';
