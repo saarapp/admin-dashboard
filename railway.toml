@@ -1,0 +1,15 @@
+[build]
+builder = "nixpacks"
+rootDirectory = "backend"
+
+[providers.node]
+nodeVersion = "20"
+
+[setup]
+aptPackages = ["chromium"]
+
+[phases.build]
+cmds = ["npm install"]
+
+[phases.start]
+cmd = "node server.js"
