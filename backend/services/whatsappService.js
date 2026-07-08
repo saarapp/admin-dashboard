@@ -12,8 +12,7 @@ class WhatsappService {
     this.statuses = {};
   }
 
- /// إنشاء جلسة واتساب جديدة
-  // إنشاء جلسة واتساب جديدة
+ // إنشاء جلسة واتساب جديدة
   async createSession(sessionId, phoneNumber) {
     if (this.clients[sessionId]) {
       return { status: 'exists', message: 'الجلسة موجودة بالفعل' };
@@ -21,11 +20,19 @@ class WhatsappService {
 
     this.statuses[sessionId] = 'initializing';
 
+    // استخدام المجلد المؤقت للسيستم أونلاين لتفادي مشاكل الصلاحيات Permissions
+    const path = require('path');
+    const authPath = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', '.wwebjs_auth') 
+      : path.join(__dirname, '..', '.wwebjs_auth');
+
     const client = new Client({
-      authStrategy: new LocalAuth({ clientId: sessionId }),
+      authStrategy: new LocalAuth({ 
+        clientId: sessionId,
+        dataPath: authPath
+      }),
       puppeteer: {
         headless: true,
-        // توجيه الحزمة للمسار الصحيح للكروميوم المثبت عبر aptPackages في ريلوي
         executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/chromium' : undefined,
         args: [
           '--no-sandbox',
@@ -34,7 +41,7 @@ class WhatsappService {
           '--disable-gpu',
           '--no-first-run',
           '--no-zygote',
-          '--single-process', // ضروري لتقليل استهلاك الرام داخل ريلوي
+          '--single-process',
           '--disable-extensions'
         ]
       }
@@ -45,7 +52,6 @@ class WhatsappService {
       console.log(`📱 QR Code للجلسة ${sessionId}`);
       this.statuses[sessionId] = 'waiting_qr';
 
-      // تحويل QR إلى صورة Base64
       try {
         const qrImage = await qrcode.toDataURL(qr);
         this.qrCodes[sessionId] = qrImage;
