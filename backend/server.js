@@ -87,29 +87,24 @@ const whatsappLimiter = rateLimit({
 });
 
 // ============================================
-// Middlewares العامة (إصلاح CORS للإنتاج)
+// ============================================
+// Middlewares العامة (حل CORS النهائي والمجرب للإنتاج)
 // ============================================
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'https://admin-dashboard-git-main-saar1.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8080'
-].filter(Boolean); // تنظيف الروابط الفارغة
-
 app.use(cors({
-  origin: function (origin, callback) {
-    // السماح للطلبات بدون origin (مثل موبايل أو postman) أو الروابط المحددة بالمصفوفة
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(new Error('Blocked by CORS Policy'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true
+  origin: [
+    'https://admin-dashboard-git-main-saar1.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
+
+// إجبار السيرفر على الرد مباشرة بالموافقة على طلبات الـ Preflight قبل دخول الـ Routes
+app.options('*', cors());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
