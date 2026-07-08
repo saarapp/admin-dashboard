@@ -12,7 +12,7 @@ class WhatsappService {
     this.statuses = {};
   }
 
-  // إنشاء جلسة واتساب جديدة
+ // إنشاء جلسة واتساب جديدة
   async createSession(sessionId, phoneNumber) {
     if (this.clients[sessionId]) {
       return { status: 'exists', message: 'الجلسة موجودة بالفعل' };
@@ -24,11 +24,17 @@ class WhatsappService {
       authStrategy: new LocalAuth({ clientId: sessionId }),
       puppeteer: {
         headless: true,
+        // تحديد مسار الكروميوم المثبت أونلاين في ريلوي لتفادي تحميل حزم جديدة
+        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/chromium-browser' : undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process', // ضروري جداً لتقليل استهلاك الرام داخل حاويات ريلوي الصغيرة
+          '--disable-extensions'
         ]
       }
     });
@@ -46,7 +52,7 @@ class WhatsappService {
         console.error('خطأ في توليد QR:', err);
       }
     });
-
+    
    // عند الاتصال بنجاح
     client.on('ready', () => {
       console.log(`✅ الجلسة ${sessionId} متصلة بنجاح!`);
