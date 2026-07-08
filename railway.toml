@@ -3,7 +3,7 @@ builder = "nixpacks"
 rootDirectory = "backend"
 
 [providers.node]
-nodeVersion = "22"  # قمنا بتغييرها هنا أيضاً إلى 22 لتتطابق مع المتغيرات
+nodeVersion = "22"
 
 [setup]
 aptPackages = ["chromium"]
@@ -13,3 +13,7 @@ cmds = ["npm install"]
 
 [phases.start]
 cmd = "node server.js"
+
+[deploy]
+port = 8080       # أضفنا هذا السطر لإجبار ريلوي على فتح منفذ ويب عام
+restartPolicy = "on-failure"
