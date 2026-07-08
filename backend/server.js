@@ -1,8 +1,8 @@
 // ============================================
-// server.js - الملف الرئيسي (Production Ready)
+// server.js - الملف الرئيسي (Production Ready - Fixed CORS)
 // ============================================
 
-const express = require('express');
+const express = require('require');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -33,7 +33,7 @@ const ErrorHandler = require('./middlewares/errorHandler');
 // ============================================
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080; // افتراضي 8080 ليتوافق مع ريلوي
 
 // ============================================
 // الحماية والأداء
@@ -87,11 +87,26 @@ const whatsappLimiter = rateLimit({
 });
 
 // ============================================
-// Middlewares العامة
+// Middlewares العامة (إصلاح CORS للإنتاج)
 // ============================================
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://admin-dashboard-git-main-saar1.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:8080'
+].filter(Boolean); // تنظيف الروابط الفارغة
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function (origin, callback) {
+    // السماح للطلبات بدون origin (مثل موبايل أو postman) أو الروابط المحددة بالمصفوفة
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS Policy'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 }));
@@ -163,6 +178,7 @@ app.use('/api/marketing', marketingRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/bans', banRoutes);
+
 // ============================================
 // معالج المسارات غير الموجودة
 // ============================================
@@ -197,23 +213,14 @@ app.listen(PORT, async () => {
   console.log(`✅ الخادم يعمل على: http://localhost:${PORT}`);
   console.log(`🌍 البيئة: ${process.env.NODE_ENV || 'development'}`);
   console.log(`${'='.repeat(50)}`);
-  console.log(`\n📍 المسارات المتاحة:`);
-  console.log(`  🔐 POST   /api/auth/login`);
-  console.log(`  👨 GET    /api/captains`);
-  console.log(`  📋 GET    /api/records`);
-  console.log(`  📢 GET    /api/notifications`);
-  console.log(`  ⚙️  GET    /api/settings`);
-  console.log(`  📱 GET    /api/whatsapp`);
-  console.log(`  ⚖️  GET    /api/appeals`);
-  console.log(`  📊 GET    /api/reports`);
-  console.log(`  📢 GET    /api/marketing`);
-  console.log(`  🎫 GET    /api/tickets`);
-  console.log(`  💬 GET    /api/messages`);
-  console.log(`\n🔗 اختبر الاتصال: http://localhost:${PORT}/api/health\n`);
-
+  
   // استعادة جلسات الواتساب تلقائياً
-  const whatsappService = require('./services/whatsappService');
-  await whatsappService.restoreSessions();
+  try {
+    const whatsappService = require('./services/whatsappService');
+    await whatsappService.restoreSessions();
+  } catch (e) {
+    console.error('⚠️ فشل استعادة جلسات الواتساب عند الإقلاع:', e.message);
+  }
 });
 
 module.exports = app;
