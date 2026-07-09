@@ -18,23 +18,22 @@ function WhatsappPage() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    fetchSessions();
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  // جلب جميع الجلسات
+   // جلب جميع الجلسات (المعدلة يدوياً بالتوكن)
   const fetchSessions = async () => {
     try {
-      const response = await api.get('/whatsapp/sessions');
+      const token = localStorage.getItem('token'); // جلب التوكن من كاش المتصفح
+      const response = await api.get('/whatsapp/sessions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setSessions(response.data.data);
     } catch (error) {
       console.error('خطأ في جلب الجلسات:', error);
     }
   };
 
-  // إنشاء جلسة جديدة
+  // إنشاء جلسة جديدة (إصلاح حظر التوكن المطلوب)
   const handleCreateSession = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -43,9 +42,14 @@ function WhatsappPage() {
     setQrCode(null);
 
     try {
+      const token = localStorage.getItem('token'); // 👈 سحب التوكن هنا
       await api.post('/whatsapp/session', {
         sessionId: newSession.sessionId,
         phoneNumber: newSession.phoneNumber
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}` // 👈 حقنه بالطلب لإلغاء الحظر
+        }
       });
 
       setMessage('جاري تهيئة الجلسة... انتظر ظهور QR Code');
@@ -62,13 +66,18 @@ function WhatsappPage() {
     }
   };
 
-  // مراقبة QR Code
+ // مراقبة QR Code مع تمرير التوكن لحماية الـ Polling
   const startQRPolling = (sessionId) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     intervalRef.current = setInterval(async () => {
       try {
-        const response = await api.get(`/whatsapp/session/${sessionId}/qr`);
+        const token = localStorage.getItem('token');
+        const response = await api.get(`/whatsapp/session/${sessionId}/qr`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = response.data.data;
 
         if (data.sessionStatus === 'connected') {
@@ -78,7 +87,7 @@ function WhatsappPage() {
           fetchSessions();
         } else if (data.qrCode) {
           setQrCode(data.qrCode);
-          setMessage('📱 امسح QR Code من تطبيق الواتساب');
+          setMessage('📱 amسح QR Code من تطبيق الواتساب');
         }
       } catch (error) {
         console.error('خطأ في جلب QR:', error);
