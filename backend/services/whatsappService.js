@@ -58,17 +58,9 @@ class WhatsappService {
           '--disable-gpu',
           '--no-first-run',
           '--no-zygote',
-          '--single-process',
           '--disable-extensions',
-          '--disable-background-networking',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-breakpad',
-          '--disable-component-extensions-with-background-pages',
-          '--disable-ipc-flooding-protection',
-          '--disable-renderer-backgrounding',
           '--blink-settings=imagesEnabled=false',
-          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         ]
       }
     });
@@ -187,7 +179,7 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // إرسال رسالة مع مكافحة الحظر وتفادي أخطاء getChatById
+ // إرسال رسالة مع حماية الانتظار ومكافحة أخطاء الـ Evaluate
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
     if (!client) throw new Error('الجلسة غير موجودة');
@@ -195,6 +187,11 @@ class WhatsappService {
 
     try {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
+
+      // 🛠️ حماية: انتظر 2 ثانية إضافية للتأكد من استقرار بروتوكول الكروم قبل الحقن
+      await this.delay(2000);
+
+      // التحقق من الرقم وجلب المعرف
       const numberDetails = await client.getNumberId(formattedNumber);
       if (!numberDetails) {
         throw new Error(`الرقم ${formattedNumber} غير مسجل في الواتساب`);
@@ -202,16 +199,11 @@ class WhatsappService {
       
       const chatId = numberDetails._serialized;
 
+      // تأخير عشوائي لمحاكاة العنصر البشري
       const initialDelay = Math.floor(Math.random() * 2000) + 1000;
       await this.delay(initialDelay);
 
-      try {
-        await client.sendPresenceAvailable();
-      } catch (e) {}
-
-      const typingTime = Math.min(message.length * 30, 4000) + 1000;
-      await this.delay(typingTime);
-
+      // إرسال الرسالة مباشرة
       const response = await client.sendMessage(chatId, message);
       console.log(`✅ تم إرسال رسالة بنجاح للرقم ${formattedNumber}`);
 
