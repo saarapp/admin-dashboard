@@ -1,5 +1,5 @@
 // ============================================
-// services/whatsappService.js - نسخة الإنتاج المستقرة بالكامل
+// services/whatsappService.js - النسخة المستقرة والمصلحة للأقواس
 // ============================================
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -12,7 +12,7 @@ class WhatsappService {
     this.statuses = {};
   }
 
-  // دالة البحث المرن عن مسار الكروميوم
+  // دالة البحث عن الكروميوم
   getChromiumPath() {
     const paths = [
       '/usr/bin/chromium',
@@ -35,20 +35,20 @@ class WhatsappService {
 
     this.statuses[sessionId] = 'initializing';
 
-    // مسار حفظ الجلسات المستقر داخل مجلد المشروع
+    // التوجيه للمجلد المؤقت المفتوح بالكامل للصلاحيات أونلاين لمنع تعليق الباركود
     const path = require('path');
-    const fs = require('fs');
-    const authPath = path.join(__dirname, '..', 'wwebjs_auth_sessions');
-    
-    if (!fs.existsSync(authPath)) {
-      fs.mkdirSync(authPath, { recursive: true });
-    }
+    const authPath = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', 'wwebjs_auth_sessions') 
+      : path.join(__dirname, '..', 'wwebjs_auth_sessions');
 
     const client = new Client({
       authStrategy: new LocalAuth({ 
         clientId: sessionId,
         dataPath: authPath
       }),
+      authTimeoutMs: 60000, 
+      qrMaxImages: 0,
+      takeoverOnConflict: false, 
       puppeteer: {
         headless: 'new',
         args: [
@@ -179,7 +179,7 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
- // إرسال رسالة مع حماية الانتظار ومكافحة أخطاء الـ Evaluate
+  // إرسال رسالة
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
     if (!client) throw new Error('الجلسة غير موجودة');
@@ -187,11 +187,8 @@ class WhatsappService {
 
     try {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
+      await this.delay(2000); // حماية استقرار البروتوكول
 
-      // 🛠️ حماية: انتظر 2 ثانية إضافية للتأكد من استقرار بروتوكول الكروم قبل الحقن
-      await this.delay(2000);
-
-      // التحقق من الرقم وجلب المعرف
       const numberDetails = await client.getNumberId(formattedNumber);
       if (!numberDetails) {
         throw new Error(`الرقم ${formattedNumber} غير مسجل في الواتساب`);
@@ -199,11 +196,9 @@ class WhatsappService {
       
       const chatId = numberDetails._serialized;
 
-      // تأخير عشوائي لمحاكاة العنصر البشري
       const initialDelay = Math.floor(Math.random() * 2000) + 1000;
       await this.delay(initialDelay);
 
-      // إرسال الرسالة مباشرة
       const response = await client.sendMessage(chatId, message);
       console.log(`✅ تم إرسال رسالة بنجاح للرقم ${formattedNumber}`);
 
@@ -257,11 +252,13 @@ class WhatsappService {
     }
   }
 
-  // استعادة جميع الجلسات
+  // استعادة جميع الجلسات من الـ /tmp
   async restoreSessions() {
     const fs = require('fs');
     const path = require('path');
-    const authDir = path.join(__dirname, '..', 'wwebjs_auth_sessions');
+    const authDir = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', 'wwebjs_auth_sessions') 
+      : path.join(__dirname, '..', 'wwebjs_auth_sessions');
 
     if (!fs.existsSync(authDir)) return;
     const folders = fs.readdirSync(authDir).filter(f => f.startsWith('session-'));
