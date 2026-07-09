@@ -48,7 +48,8 @@ class WhatsappService {
       }),
       puppeteer: {
         headless: true,
-        // إزالة executablePath تماماً لترك بوبيتير يستدعي المتصفح الافتراضي للنظام تلقائياً
+        // تحديد مسار غلاف جوجل كروم المستقر الذي توفره حزمة الـ apt في ريلوي
+        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/google-chrome' : undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
