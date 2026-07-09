@@ -1,5 +1,5 @@
 // ============================================
-// services/whatsappService.js - النسخة المستقرة والمصلحة للأقواس
+// services/whatsappService.js - النسخة النهائية المستقرة
 // ============================================
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -35,7 +35,6 @@ class WhatsappService {
 
     this.statuses[sessionId] = 'initializing';
 
-    // التوجيه للمجلد المؤقت المفتوح بالكامل للصلاحيات أونلاين لمنع تعليق الباركود
     const path = require('path');
     const authPath = process.env.NODE_ENV === 'production' 
       ? path.join('/tmp', 'wwebjs_auth_sessions') 
@@ -46,11 +45,9 @@ class WhatsappService {
         clientId: sessionId,
         dataPath: authPath
       }),
-      // 🛠️ الحل الحاسم لمنع تعليق الباركود أونلاين:
-      authTimeoutMs: 120000, // رفع وقت التوثيق إلى دقيقتين كاملتين لمنع الفصل أثناء قراءة البيانات
+      authTimeoutMs: 120000, 
       qrMaxImages: 0,
       takeoverOnConflict: false,
-      // إجبار الحزمة على استخدام نسخة ويب مستقرة وسريعة لا تستهلك معالج ريلوي
       webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
@@ -71,17 +68,14 @@ class WhatsappService {
       }
     });
 
-    // عند ظهور QR Code (نسخة المزامنة القسرية وتنشيط الربط)
+    // عند ظهور QR Code
     client.on('qr', async (qr) => {
-      console.log(`📱 QR Code الجديد جاهز للجلسة ${sessionId}`);
+      console.log(`📱 QR Code للجلسة ${sessionId}`);
       this.statuses[sessionId] = 'waiting_qr';
-      
       try {
         const qrImage = await qrcode.toDataURL(qr);
         this.qrCodes[sessionId] = qrImage;
         
-        // 🛠️ خدعة تنشيط حركة المتصفح: 
-        // نجعل بوبيتير يقوم بعمل إيعاز داخلي خفيف بالخلفية لإنعاش الاتصال وسرعة لقط المسحة
         if (client.pupPage) {
           await client.pupPage.evaluate(() => {
             console.log('Refreshing connection matrix...');
@@ -91,18 +85,17 @@ class WhatsappService {
         console.error('خطأ في توليد QR:', err);
       }
     });
-
-    // 🛠️ حماية إضافية: إضافة حدث الاستيقاظ (حتى إذا لقط المسحة ومتحول جاهز، نجبره يتحول فوراً)
-    client.on('authenticated', () => {
-      console.log(`🔒 تم التوثيق المبدئي للجلسة ${sessionId} - جاري التحويل لـ Ready...`);
-      this.statuses[sessionId] = 'authenticated';
-    });
     
     // عند الاتصال بنجاح
     client.on('ready', () => {
       console.log(`✅ الجلسة ${sessionId} متصلة بنجاح!`);
       this.statuses[sessionId] = 'connected';
       this.qrCodes[sessionId] = null;
+    });
+
+    client.on('authenticated', () => {
+      console.log(`🔒 تم التوثيق المبدئي للجلسة ${sessionId}`);
+      this.statuses[sessionId] = 'authenticated';
     });
 
     // الاستماع للرسائل الواردة
@@ -136,45 +129,33 @@ class WhatsappService {
       }
     });
 
-    // عند الفصل
     client.on('disconnected', (reason) => {
       console.log(`❌ الجلسة ${sessionId} انفصلت:`, reason);
       this.statuses[sessionId] = 'disconnected';
       delete this.clients[sessionId];
     });
 
-    // عند فشل المصادقة
-    client.on('auth_failure', (msg) => {
-      console.error(`❌ فشل المصادقة للجلسة ${sessionId}:`, msg);
-      this.statuses[sessionId] = 'auth_failure';
-    });
-
     this.clients[sessionId] = client;
 
-    // بدء الاتصال
     try {
       await client.initialize();
     } catch (error) {
       console.error(`❌ خطأ مفصل في تهيئة الجلسة ${sessionId}:`, error);
       this.statuses[sessionId] = 'error';
-      this.qrCodes[sessionId] = `ERROR_DETAILS: ${error.message}`;
-      return { status: 'error', message: error.message, stack: error.stack };
+      return { status: 'error', message: error.message };
     }
 
     return { status: 'initializing', message: 'جاري التهيئة...' };
   }
   
-  // جلب QR Code
   getQRCode(sessionId) {
     return this.qrCodes[sessionId] || null;
   }
 
-  // جلب حالة الجلسة
   getStatus(sessionId) {
     return this.statuses[sessionId] || 'not_found';
   }
 
-  // جلب جميع الجلسات
   getAllSessions() {
     const sessions = {};
     Object.keys(this.statuses).forEach(id => {
@@ -186,7 +167,6 @@ class WhatsappService {
     return sessions;
   }
 
-  // تنسيق الرقم
   formatPhoneNumber(phoneNumber) {
     let number = phoneNumber.replace(/[+\s\-()]/g, '');
     if (number.startsWith('00')) number = number.substring(2);
@@ -195,44 +175,11 @@ class WhatsappService {
     return number;
   }
 
-  // تأخير
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // إرسال رسالة
-  async sendMessage(sessionId, phoneNumber, message) {
-    const client = this.clients[sessionId];
-    if (!client) throw new Error('الجلسة غير موجودة');
-    if (this.statuses[sessionId] !== 'connected') throw new Error('الجلسة غير متصلة');
-
-    try {
-      const formattedNumber = this.formatPhoneNumber(phoneNumber);
-      await this.delay(2000); // حماية استقرار البروتوكول
-
-      const numberDetails = await client.getNumberId(formattedNumber);
-      if (!numberDetails) {
-        throw new Error(`الرقم ${formattedNumber} غير مسجل في الواتساب`);
-      }
-      
-      const chatId = numberDetails._serialized;
-
-      const initialDelay = Math.floor(Math.random() * 2000) + 1000;
-      await this.delay(initialDelay);
-
-      const response = await client.sendMessage(chatId, message);
-      console.log(`✅ تم إرسال رسالة بنجاح للرقم ${formattedNumber}`);
-
-      return {
-        status: 'sent',
-        messageId: response.id._serialized,
-        timestamp: new Date()
-      };
-    } catch (error) {
-      console.error(`❌ فشل إرسال الرسالة للرقم ${phoneNumber}:`, error.message);
-      throw error;
-    }
-  }// إرسال رسالة مباشرة عبر حقن المتصفح لتفادي أخطاء الـ CdpFrame نهائياً
+  // إرسال رسالة مباشرة عبر حقن المتصفح لمنع تعليق الـ CDP
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
     if (!client) throw new Error('الجلسة غير موجودة');
@@ -245,65 +192,63 @@ class WhatsappService {
       await this.delay(1000);
       console.log(`🚀 محاولة دفع الرسالة بالحقن المباشر للرقم: ${chatId}`);
 
-      // 🛠️ الحل السحري: تنفيذ الإرسال مباشرة داخل الـ Page Context للواتساب
-      // هذا يتجاوز كود الحزمة المكسور ويستدعي نظام واتساب ويب الداخلي فوراً
       if (client.pupPage) {
         await client.pupPage.evaluate(async (jid, text) => {
-          // التحقق من أن كائن مخزن واتساب ويب جاهز في المتصفح بالخلفية
           if (window.Store && window.Store.Chat) {
             const chatObj = window.Store.Chat.get(jid);
             if (chatObj) {
               await chatObj.sendMessage(text);
               return true;
             } else {
-              // إذا لم تكن المحادثة مفتوحة مسبقاً، ننشئها ونرسل الرسالة فوراً
               const idUser = new window.Store.UserConstructor(jid, { Object: Object });
               const newChat = await window.Store.Chat.find(idUser);
               await newChat.sendMessage(text);
               return true;
             }
           }
-          throw new Error('WWebJS Store is not ready yet');
+          throw new Error('WWebJS Store is not ready');
         }, chatId, message);
       } else {
-        // طريقة احتياطية في حال عدم توفر الـ pupPage
         await client.sendMessage(chatId, message);
       }
 
-      console.log(`✅ تم خروج الرسالة بنجاح مذهل من السيرفر للرقم ${formattedNumber}`);
-
-      return {
-        status: 'sent',
-        messageId: 'direct_inject_' + Date.now(),
-        timestamp: new Date()
-      };
+      console.log(`✅ تم خروج الرسالة بنجاح للرقم ${formattedNumber}`);
+      return { status: 'sent', messageId: 'direct_' + Date.now(), timestamp: new Date() };
     } catch (error) {
-      console.error(`❌ فشل إرسال الرسالة للرقم ${phoneNumber}:`, error.message);
-      
-      // محاولة أخيرة بالطريقة القياسية للحزمة إذا فشل الحقن المباشر
-      try {
-        console.log("🔄 محاولة الإرسال بالطريقة الاحتياطية القياسية...");
-        const formattedNumber = this.formatPhoneNumber(phoneNumber);
-        const response = await client.sendMessage(`${formattedNumber}@c.us`, message);
-        return {
-          status: 'sent',
-          messageId: response.id?._serialized || 'fallback_sent',
-          timestamp: new Date()
-        };
-      } catch (fallbackError) {
-        throw new Error(`تعذر الإرسال بكلا الطريقتين: ${fallbackError.message}`);
-      }
+      console.error(`❌ فشل الحقن، محاولة الطريقة القياسية للرقم ${phoneNumber}:`, error.message);
+      const formattedNumber = this.formatPhoneNumber(phoneNumber);
+      const response = await client.sendMessage(`${formattedNumber}@c.us`, message);
+      return { status: 'sent', messageId: response.id?._serialized, timestamp: new Date() };
     }
   }
 
-  // إغلاق جميع الجلسات
-  async closeAllSessions() {
-    for (const sessionId of Object.keys(this.clients)) {
-      await this.closeSession(sessionId);
+  // اختيار أفضل جلسة متصلة للـ Load Balance
+  selectBestSession() {
+    const connectedSessions = Object.keys(this.clients).filter(
+      id => this.statuses[id] === 'connected'
+    );
+    if (connectedSessions.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * connectedSessions.length);
+    return connectedSessions[randomIndex];
+  }
+
+  // الدالة المطلوبة لتوزيع الحمل وإرسال الرسائل الصادرة للزبائن والسائقين
+  async sendMessageWithLoadBalance(phoneNumber, message) {
+    const sessionId = this.selectBestSession();
+    if (!sessionId) throw new Error('لا توجد جلسات واتساب متصلة حالياً لتوزيع الحمل');
+    return await this.sendMessage(sessionId, phoneNumber, message);
+  }
+
+  async closeSession(sessionId) {
+    const client = this.clients[sessionId];
+    if (client) {
+      try { await client.destroy(); } catch (e) {}
+      delete this.clients[sessionId];
+      delete this.qrCodes[sessionId];
+      this.statuses[sessionId] = 'closed';
     }
   }
 
-  // استعادة جميع الجلسات من الـ /tmp
   async restoreSessions() {
     const fs = require('fs');
     const path = require('path');
