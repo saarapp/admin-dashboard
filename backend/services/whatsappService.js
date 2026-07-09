@@ -52,7 +52,7 @@ class WhatsappService {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
       },
-      puppeteer: {
+     puppeteer: {
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -63,6 +63,8 @@ class WhatsappService {
           '--no-zygote',
           '--disable-extensions',
           '--blink-settings=imagesEnabled=false',
+          // 🛠️ منع عزل الصفحات والعوالم الافتراضية لمنع خطأ IsolatedWorld نهائياً أونلاين:
+          '--disable-features=IsolateOrigins,site-per-process',
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         ]
       }
@@ -179,7 +181,7 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // إرسال رسالة مباشرة عبر حقن المتصفح لمنع تعليق الـ CDP
+  // إرسال رسالة متوافقة 100% مع بيئة الإنتاج المعزولة لـ Railway
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
     if (!client) throw new Error('الجلسة غير موجودة');
@@ -189,36 +191,23 @@ class WhatsappService {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
       const chatId = `${formattedNumber}@c.us`;
 
-      await this.delay(1000);
-      console.log(`🚀 محاولة دفع الرسالة بالحقن المباشر للرقم: ${chatId}`);
+      console.log(`🚀 دفع الرسالة الفورية للرقم القياسي: ${chatId}`);
+      
+      // التأخير البشري المستقر
+      await this.delay(1500);
 
-      if (client.pupPage) {
-        await client.pupPage.evaluate(async (jid, text) => {
-          if (window.Store && window.Store.Chat) {
-            const chatObj = window.Store.Chat.get(jid);
-            if (chatObj) {
-              await chatObj.sendMessage(text);
-              return true;
-            } else {
-              const idUser = new window.Store.UserConstructor(jid, { Object: Object });
-              const newChat = await window.Store.Chat.find(idUser);
-              await newChat.sendMessage(text);
-              return true;
-            }
-          }
-          throw new Error('WWebJS Store is not ready');
-        }, chatId, message);
-      } else {
-        await client.sendMessage(chatId, message);
-      }
-
-      console.log(`✅ تم خروج الرسالة بنجاح للرقم ${formattedNumber}`);
-      return { status: 'sent', messageId: 'direct_' + Date.now(), timestamp: new Date() };
+      // الإرسال الفوري عبر بروتوكول الحزمة المحدث، والذي يعبر الـ IsolatedWorld تلقائياً
+      const response = await client.sendMessage(chatId, message);
+      
+      console.log(`✅ تم خروج الرسالة بنجاح مذهل من السيرفر للرقم ${formattedNumber}`);
+      return {
+        status: 'sent',
+        messageId: response.id?._serialized || 'sent_' + Date.now(),
+        timestamp: new Date()
+      };
     } catch (error) {
-      console.error(`❌ فشل الحقن، محاولة الطريقة القياسية للرقم ${phoneNumber}:`, error.message);
-      const formattedNumber = this.formatPhoneNumber(phoneNumber);
-      const response = await client.sendMessage(`${formattedNumber}@c.us`, message);
-      return { status: 'sent', messageId: response.id?._serialized, timestamp: new Date() };
+      console.error(`❌ فشل إرسال الرسالة للرقم ${phoneNumber}:`, error.message);
+      throw error;
     }
   }
 
