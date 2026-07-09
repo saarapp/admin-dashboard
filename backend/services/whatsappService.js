@@ -52,7 +52,7 @@ class WhatsappService {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
       },
-     puppeteer: {
+    puppeteer: {
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -63,8 +63,13 @@ class WhatsappService {
           '--no-zygote',
           '--disable-extensions',
           '--blink-settings=imagesEnabled=false',
-          // 🛠️ منع عزل الصفحات والعوالم الافتراضية لمنع خطأ IsolatedWorld نهائياً أونلاين:
+          // 🛠️ ترسانة مكافحة تجميد المتصفح وسحب الـ CPU في Railway:
           '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-site-justification',
+          '--disable-renderer-backgrounding',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-ipc-flooding-protection',
+          '--js-flags="--max-old-space-size=256"', // تحجيم ذاكرة الجافاسكريبت للمتصفح لمنع قتل العملية
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         ]
       }
@@ -191,15 +196,14 @@ class WhatsappService {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
       const chatId = `${formattedNumber}@c.us`;
 
-      console.log(`🚀 دفع الرسالة الفورية للرقم القياسي: ${chatId}`);
+      console.log(`🚀 إرسال مباشر عبر بروتوكول الحزمة الآمن للرقم: ${chatId}`);
       
-      // التأخير البشري المستقر
-      await this.delay(1500);
+      // تأخير عشوائي بشري خفيف
+      await this.delay(1000);
 
-      // الإرسال الفوري عبر بروتوكول الحزمة المحدث، والذي يعبر الـ IsolatedWorld تلقائياً
       const response = await client.sendMessage(chatId, message);
-      
       console.log(`✅ تم خروج الرسالة بنجاح مذهل من السيرفر للرقم ${formattedNumber}`);
+      
       return {
         status: 'sent',
         messageId: response.id?._serialized || 'sent_' + Date.now(),
