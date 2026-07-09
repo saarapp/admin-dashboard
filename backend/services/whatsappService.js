@@ -48,8 +48,7 @@ class WhatsappService {
       }),
       puppeteer: {
         headless: true,
-        // 👈 هنا قمنا باستدعاء الدالة المرنة لقراءة المسار الصحيح أونلاين
-        executablePath: process.env.NODE_ENV === 'production' ? this.getChromiumPath() : undefined,
+        // إزالة executablePath تماماً لترك بوبيتير يستدعي المتصفح الافتراضي للنظام تلقائياً
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
