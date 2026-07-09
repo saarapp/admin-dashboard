@@ -47,8 +47,8 @@ class WhatsappService {
         dataPath: authPath
       }),
       puppeteer: {
-        headless: true,
-        // إزالة executablePath تماماً لترك بوبيتير يعتمد على نسخته المحلية المدمجة
+        // استخدام الطريقة الحديثة لتفادي كشف الـ Headless من سيرفرات ميتا
+        headless: 'new', 
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -57,7 +57,9 @@ class WhatsappService {
           '--no-first-run',
           '--no-zygote',
           '--single-process',
-          '--disable-extensions'
+          '--disable-extensions',
+          // حقن User-Agent حقيقي لمتصفح مستقر لتفادي أخطاء الـ CdpFrame
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
       }
     });
