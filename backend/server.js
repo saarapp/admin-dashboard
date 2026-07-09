@@ -33,6 +33,7 @@ const ErrorHandler = require('./middlewares/errorHandler');
 // ============================================
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080; // افتراضي 8080 ليتوافق مع ريلوي
 
 // ============================================

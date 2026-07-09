@@ -1,5 +1,5 @@
 // ============================================
-// services/whatsappService.js - خدمة الواتساب
+// services/whatsappService.js - خدمة الواتساب (المعدلة بالدالة المرنة)
 // ============================================
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -12,7 +12,22 @@ class WhatsappService {
     this.statuses = {};
   }
 
- // إنشاء جلسة واتساب جديدة
+  // 🛠️ دالة البحث المرن عن مسار الكروميوم المثبت بالنظام (موقعها الجديد)
+  getChromiumPath() {
+    const paths = [
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/snap/bin/chromium'
+    ];
+    const fs = require('fs');
+    for (const p of paths) {
+      if (fs.existsSync(p)) return p;
+    }
+    return undefined; // إذا لم يجده، يترك بوبيتير يبحث في المسارات الافتراضية
+  }
+
+  // إنشاء جلسة واتساب جديدة
   async createSession(sessionId, phoneNumber) {
     if (this.clients[sessionId]) {
       return { status: 'exists', message: 'الجلسة موجودة بالفعل' };
@@ -33,7 +48,8 @@ class WhatsappService {
       }),
       puppeteer: {
         headless: true,
-        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/chromium' : undefined,
+        // 👈 هنا قمنا باستدعاء الدالة المرنة لقراءة المسار الصحيح أونلاين
+        executablePath: process.env.NODE_ENV === 'production' ? this.getChromiumPath() : undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -60,19 +76,19 @@ class WhatsappService {
       }
     });
     
-   // عند الاتصال بنجاح
+    // عند الاتصال بنجاح
     client.on('ready', () => {
       console.log(`✅ الجلسة ${sessionId} متصلة بنجاح!`);
       this.statuses[sessionId] = 'connected';
       this.qrCodes[sessionId] = null;
     });
 
-   // الاستماع للرسائل الواردة
+    // الاستماع للرسائل الواردة
     client.on('message', async (msg) => {
       try {
         let phoneNumber = '';
 
-       // جلب الرقم الحقيقي
+        // جلب الرقم الحقيقي
         try {
           const contact = await msg.getContact();
           phoneNumber = contact.id?.user || contact.number || '';
@@ -125,7 +141,6 @@ class WhatsappService {
     } catch (error) {
       console.error(`❌ خطأ مفصل في تهيئة الجلسة ${sessionId}:`, error);
       this.statuses[sessionId] = 'error';
-      // تخزين نص الخطأ الفعلي لكي نقرأه
       this.qrCodes[sessionId] = `ERROR_DETAILS: ${error.message}`;
       return { status: 'error', message: error.message, stack: error.stack };
     }
@@ -286,11 +301,13 @@ class WhatsappService {
     }
   }
 
-  // استعادة جميع الجلسات المحفوظة
+  // :🔄 استعادة جميع الجلسات المحفوظة من الـ /tmp للإنتاج
   async restoreSessions() {
     const fs = require('fs');
     const path = require('path');
-    const authDir = path.join(__dirname, '..', '.wwebjs_auth');
+    const authDir = process.env.NODE_ENV === 'production' 
+      ? path.join('/tmp', '.wwebjs_auth') 
+      : path.join(__dirname, '..', '.wwebjs_auth');
 
     if (!fs.existsSync(authDir)) return;
 
@@ -306,7 +323,5 @@ class WhatsappService {
 
 // إنشاء instance واحد
 const whatsappService = new WhatsappService();
-
-
 
 module.exports = whatsappService;
