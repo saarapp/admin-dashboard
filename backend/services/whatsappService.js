@@ -50,17 +50,26 @@ class WhatsappService {
         clientId: sessionId,
         dataPath: authPath
       }),
-      puppeteer: {
-        headless: 'new', // الطريقة الحديثة والمستقرة لمنع كشف البوتات
+     puppeteer: {
+        headless: 'new',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
+          '--disable-dev-shm-usage', // إجبار المتصفح على استخدام الـ RAM بدلاً من مساحة الشيرد المحدودة
           '--disable-gpu',
           '--no-first-run',
           '--no-zygote',
-          '--single-process',
+          '--single-process', // تشغيل المتصفح في عملية واحدة بدلاً من فتح عدة عمليات تستهلك الرام
           '--disable-extensions',
+          // 🛠️ فلاتر إضافية لتقليل استهلاك الرام أونلاين:
+          '--disable-background-networking',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-ipc-flooding-protection',
+          '--disable-renderer-backgrounding',
+          '--blink-settings=imagesEnabled=false', // 👈 منع تحميل الصور داخل واتساب ويب لتوفير الرام فوراً
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
       }
