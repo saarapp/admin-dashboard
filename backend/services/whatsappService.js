@@ -48,8 +48,7 @@ class WhatsappService {
       }),
       puppeteer: {
         headless: true,
-        // تحديد مسار غلاف جوجل كروم المستقر الذي توفره حزمة الـ apt في ريلوي
-        executablePath: process.env.NODE_ENV === 'production' ? '/usr/bin/google-chrome' : undefined,
+        // إزالة executablePath تماماً لترك بوبيتير يعتمد على نسخته المحلية المدمجة
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
