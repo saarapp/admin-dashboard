@@ -35,11 +35,15 @@ class WhatsappService {
 
     this.statuses[sessionId] = 'initializing';
 
-    // استخدام المجلد المؤقت للسيستم أونلاين لتفادي مشاكل الصلاحيات Permissions
+   // إنشاء مسار حفظ محلي داخل مجلد المشروع نفسه لتفادي تصفير الـ /tmp عند الـ Restart
     const path = require('path');
-    const authPath = process.env.NODE_ENV === 'production' 
-      ? path.join('/tmp', '.wwebjs_auth') 
-      : path.join(__dirname, '..', '.wwebjs_auth');
+    const fs = require('fs');
+    const authPath = path.join(__dirname, '..', 'wwebjs_auth_sessions');
+    
+    // التأكد من وجود المجلد وصلاحية الكتابة فيه يدوياً
+    if (!fs.existsSync(authPath)) {
+      fs.mkdirSync(authPath, { recursive: true });
+    }
 
     const client = new Client({
       authStrategy: new LocalAuth({ 
@@ -47,8 +51,7 @@ class WhatsappService {
         dataPath: authPath
       }),
       puppeteer: {
-        // استخدام الطريقة الحديثة لتفادي كشف الـ Headless من سيرفرات ميتا
-        headless: 'new', 
+        headless: 'new', // الطريقة الحديثة والمستقرة لمنع كشف البوتات
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -58,7 +61,6 @@ class WhatsappService {
           '--no-zygote',
           '--single-process',
           '--disable-extensions',
-          // حقن User-Agent حقيقي لمتصفح مستقر لتفادي أخطاء الـ CdpFrame
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
       }
@@ -298,13 +300,11 @@ class WhatsappService {
     }
   }
 
-  // :🔄 استعادة جميع الجلسات المحفوظة من الـ /tmp للإنتاج
+  // استعادة جميع الجلسات المحفوظة من المسار المستقر
   async restoreSessions() {
     const fs = require('fs');
     const path = require('path');
-    const authDir = process.env.NODE_ENV === 'production' 
-      ? path.join('/tmp', '.wwebjs_auth') 
-      : path.join(__dirname, '..', '.wwebjs_auth');
+    const authDir = path.join(__dirname, '..', 'wwebjs_auth_sessions');
 
     if (!fs.existsSync(authDir)) return;
 
@@ -315,9 +315,7 @@ class WhatsappService {
       console.log(`🔄 جاري استعادة جلسة: ${sessionId}`);
       await this.createSession(sessionId, sessionId);
     }
-  }
-}
-
+ 
 // إنشاء instance واحد
 const whatsappService = new WhatsappService();
 
