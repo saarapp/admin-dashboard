@@ -52,8 +52,9 @@ class WhatsappService {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
       },
-    puppeteer: {
-        headless: 'new',
+   puppeteer: {
+        headless: true, // النمط القياسي الأسرع والأخف بالرام للإنتاج
+        protocolTimeout: 180000, // 🛠️ رفع مهلة الاستجابة إلى 3 دقائق لحل خطأ الـ Runtime تيم آوت نهائياً
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -63,13 +64,12 @@ class WhatsappService {
           '--no-zygote',
           '--disable-extensions',
           '--blink-settings=imagesEnabled=false',
-          // 🛠️ ترسانة مكافحة تجميد المتصفح وسحب الـ CPU في Railway:
           '--disable-features=IsolateOrigins,site-per-process',
           '--disable-site-justification',
           '--disable-renderer-backgrounding',
           '--disable-backgrounding-occluded-windows',
           '--disable-ipc-flooding-protection',
-          '--js-flags="--max-old-space-size=256"', // تحجيم ذاكرة الجافاسكريبت للمتصفح لمنع قتل العملية
+          '--js-flags="--max-old-space-size=256"',
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         ]
       }
