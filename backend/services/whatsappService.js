@@ -46,9 +46,15 @@ class WhatsappService {
         clientId: sessionId,
         dataPath: authPath
       }),
-      authTimeoutMs: 60000, 
+      // 🛠️ الحل الحاسم لمنع تعليق الباركود أونلاين:
+      authTimeoutMs: 120000, // رفع وقت التوثيق إلى دقيقتين كاملتين لمنع الفصل أثناء قراءة البيانات
       qrMaxImages: 0,
-      takeoverOnConflict: false, 
+      takeoverOnConflict: false,
+      // إجبار الحزمة على استخدام نسخة ويب مستقرة وسريعة لا تستهلك معالج ريلوي
+      webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
+      },
       puppeteer: {
         headless: 'new',
         args: [
