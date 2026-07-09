@@ -1,5 +1,5 @@
 // ============================================
-// services/whatsappService.js - خدمة الواتساب (المعدلة بالدالة المرنة)
+// services/whatsappService.js - نسخة الإنتاج المستقرة بالكامل
 // ============================================
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -12,7 +12,7 @@ class WhatsappService {
     this.statuses = {};
   }
 
-  // 🛠️ دالة البحث المرن عن مسار الكروميوم المثبت بالنظام (موقعها الجديد)
+  // دالة البحث المرن عن مسار الكروميوم
   getChromiumPath() {
     const paths = [
       '/usr/bin/chromium',
@@ -24,7 +24,7 @@ class WhatsappService {
     for (const p of paths) {
       if (fs.existsSync(p)) return p;
     }
-    return undefined; // إذا لم يجده، يترك بوبيتير يبحث في المسارات الافتراضية
+    return undefined;
   }
 
   // إنشاء جلسة واتساب جديدة
@@ -35,12 +35,11 @@ class WhatsappService {
 
     this.statuses[sessionId] = 'initializing';
 
-   // إنشاء مسار حفظ محلي داخل مجلد المشروع نفسه لتفادي تصفير الـ /tmp عند الـ Restart
+    // مسار حفظ الجلسات المستقر داخل مجلد المشروع
     const path = require('path');
     const fs = require('fs');
     const authPath = path.join(__dirname, '..', 'wwebjs_auth_sessions');
     
-    // التأكد من وجود المجلد وصلاحية الكتابة فيه يدوياً
     if (!fs.existsSync(authPath)) {
       fs.mkdirSync(authPath, { recursive: true });
     }
@@ -50,18 +49,17 @@ class WhatsappService {
         clientId: sessionId,
         dataPath: authPath
       }),
-     puppeteer: {
+      puppeteer: {
         headless: 'new',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage', // إجبار المتصفح على استخدام الـ RAM بدلاً من مساحة الشيرد المحدودة
+          '--disable-dev-shm-usage',
           '--disable-gpu',
           '--no-first-run',
           '--no-zygote',
-          '--single-process', // تشغيل المتصفح في عملية واحدة بدلاً من فتح عدة عمليات تستهلك الرام
+          '--single-process',
           '--disable-extensions',
-          // 🛠️ فلاتر إضافية لتقليل استهلاك الرام أونلاين:
           '--disable-background-networking',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
@@ -69,7 +67,7 @@ class WhatsappService {
           '--disable-component-extensions-with-background-pages',
           '--disable-ipc-flooding-protection',
           '--disable-renderer-backgrounding',
-          '--blink-settings=imagesEnabled=false', // 👈 منع تحميل الصور داخل واتساب ويب لتوفير الرام فوراً
+          '--blink-settings=imagesEnabled=false',
           '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
       }
@@ -79,7 +77,6 @@ class WhatsappService {
     client.on('qr', async (qr) => {
       console.log(`📱 QR Code للجلسة ${sessionId}`);
       this.statuses[sessionId] = 'waiting_qr';
-
       try {
         const qrImage = await qrcode.toDataURL(qr);
         this.qrCodes[sessionId] = qrImage;
@@ -99,14 +96,11 @@ class WhatsappService {
     client.on('message', async (msg) => {
       try {
         let phoneNumber = '';
-
-        // جلب الرقم الحقيقي
         try {
           const contact = await msg.getContact();
           phoneNumber = contact.id?.user || contact.number || '';
         } catch (e) {}
 
-        // إذا ما نجح، جرّب من الـ chat
         if (!phoneNumber || phoneNumber.length > 15) {
           try {
             const chat = await msg.getChat();
@@ -114,12 +108,10 @@ class WhatsappService {
           } catch (e) {}
         }
 
-        // إذا ما نجح، جرّب من msg مباشرة
         if (!phoneNumber || phoneNumber.length > 15) {
           phoneNumber = msg.from.replace('@c.us', '').replace('@lid', '').replace(/@.*/, '');
         }
 
-        // تجاهل الرسائل من المجموعات
         if (msg.from.includes('@g.us')) return;
 
         console.log(`📩 رسالة واردة من: ${phoneNumber} - ${msg.body}`);
@@ -144,7 +136,6 @@ class WhatsappService {
       this.statuses[sessionId] = 'auth_failure';
     });
 
-    // حفظ الـ client
     this.clients[sessionId] = client;
 
     // بدء الاتصال
@@ -160,7 +151,6 @@ class WhatsappService {
     return { status: 'initializing', message: 'جاري التهيئة...' };
   }
   
-
   // جلب QR Code
   getQRCode(sessionId) {
     return this.qrCodes[sessionId] || null;
@@ -183,22 +173,12 @@ class WhatsappService {
     return sessions;
   }
 
-  // تنسيق الرقم (يقبل أي صيغة)
+  // تنسيق الرقم
   formatPhoneNumber(phoneNumber) {
     let number = phoneNumber.replace(/[+\s\-()]/g, '');
-
-    if (number.startsWith('00')) {
-      number = number.substring(2);
-    }
-
-    if (number.startsWith('0')) {
-      number = '964' + number.substring(1);
-    }
-
-    if (!number.startsWith('964')) {
-      number = '964' + number;
-    }
-
+    if (number.startsWith('00')) number = number.substring(2);
+    if (number.startsWith('0')) number = '964' + number.substring(1);
+    if (!number.startsWith('964')) number = '964' + number;
     return number;
   }
 
@@ -207,45 +187,32 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // إرسال رسالة مع مكافحة الحظر (نسخة الإنتاج المستقرة والمصلحة)
+  // إرسال رسالة مع مكافحة الحظر وتفادي أخطاء getChatById
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
-
-    if (!client) {
-      throw new Error('الجلسة غير موجودة');
-    }
-
-    if (this.statuses[sessionId] !== 'connected') {
-      throw new Error('الجلسة غير متصلة');
-    }
+    if (!client) throw new Error('الجلسة غير موجودة');
+    if (this.statuses[sessionId] !== 'connected') throw new Error('الجلسة غير متصلة');
 
     try {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
-      
-      // 1. التحقق من أن الرقم مسجل في الواتساب وجلب الـ ChatId الصحيح له أونلاين
       const numberDetails = await client.getNumberId(formattedNumber);
       if (!numberDetails) {
-        throw new Error(`الرقم ${formattedNumber} غير مسجل في تطبيق الواتساب`);
+        throw new Error(`الرقم ${formattedNumber} غير مسجل في الواتساب`);
       }
       
-      const chatId = numberDetails._serialized; // المعرف الرسمي المضمون (مثل 96478xxxxxx@c.us)
+      const chatId = numberDetails._serialized;
 
-      // 2. تأخير عشوائي قبل البدء (1-3 ثواني) لمحاكاة العنصر البشري
       const initialDelay = Math.floor(Math.random() * 2000) + 1000;
       await this.delay(initialDelay);
 
-      // 3. محاكاة "جاري الكتابة..." مباشرة عبر الـ client لتفادي أخطاء getChatById
       try {
         await client.sendPresenceAvailable();
       } catch (e) {}
 
-      // 4. تأخير عشوائي كأنه يكتب فعلاً حسب طول الرسالة
       const typingTime = Math.min(message.length * 30, 4000) + 1000;
       await this.delay(typingTime);
 
-      // 5. إرسال الرسالة مباشرة إلى الـ chatId المضمون
       const response = await client.sendMessage(chatId, message);
-
       console.log(`✅ تم إرسال رسالة بنجاح للرقم ${formattedNumber}`);
 
       return {
@@ -259,17 +226,12 @@ class WhatsappService {
     }
   }
 
-  // اختيار أفضل جلسة (توزيع الحمل)
+  // اختيار أفضل جلسة
   selectBestSession() {
     const connectedSessions = Object.keys(this.clients).filter(
       id => this.statuses[id] === 'connected'
     );
-
-    if (connectedSessions.length === 0) {
-      return null;
-    }
-
-    // اختيار عشوائي بين الجلسات المتصلة
+    if (connectedSessions.length === 0) return null;
     const randomIndex = Math.floor(Math.random() * connectedSessions.length);
     return connectedSessions[randomIndex];
   }
@@ -277,25 +239,19 @@ class WhatsappService {
   // إرسال رسالة مع توزيع الحمل
   async sendMessageWithLoadBalance(phoneNumber, message) {
     const sessionId = this.selectBestSession();
-
-    if (!sessionId) {
-      throw new Error('لا توجد جلسات واتساب متصلة');
-    }
-
+    if (!sessionId) throw new Error('لا توجد جلسات واتساب متصلة');
     return await this.sendMessage(sessionId, phoneNumber, message);
   }
 
   // إغلاق جلسة
   async closeSession(sessionId) {
     const client = this.clients[sessionId];
-
     if (client) {
       try {
         await client.destroy();
       } catch (error) {
         console.error('خطأ في إغلاق الجلسة:', error);
       }
-
       delete this.clients[sessionId];
       delete this.qrCodes[sessionId];
       this.statuses[sessionId] = 'closed';
@@ -309,14 +265,13 @@ class WhatsappService {
     }
   }
 
-  // استعادة جميع الجلسات المحفوظة من المسار المستقر
+  // استعادة جميع الجلسات
   async restoreSessions() {
     const fs = require('fs');
     const path = require('path');
     const authDir = path.join(__dirname, '..', 'wwebjs_auth_sessions');
 
     if (!fs.existsSync(authDir)) return;
-
     const folders = fs.readdirSync(authDir).filter(f => f.startsWith('session-'));
 
     for (const folder of folders) {
@@ -324,8 +279,8 @@ class WhatsappService {
       console.log(`🔄 جاري استعادة جلسة: ${sessionId}`);
       await this.createSession(sessionId, sessionId);
     }
- 
-// إنشاء instance واحد
-const whatsappService = new WhatsappService();
+  }
+}
 
+const whatsappService = new WhatsappService();
 module.exports = whatsappService;
