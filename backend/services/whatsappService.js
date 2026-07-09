@@ -123,12 +123,16 @@ class WhatsappService {
     try {
       await client.initialize();
     } catch (error) {
-      console.error(`خطأ في تهيئة الجلسة ${sessionId}:`, error);
+      console.error(`❌ خطأ مفصل في تهيئة الجلسة ${sessionId}:`, error);
       this.statuses[sessionId] = 'error';
+      // تخزين نص الخطأ الفعلي لكي نقرأه
+      this.qrCodes[sessionId] = `ERROR_DETAILS: ${error.message}`;
+      return { status: 'error', message: error.message, stack: error.stack };
     }
 
     return { status: 'initializing', message: 'جاري التهيئة...' };
   }
+  
 
   // جلب QR Code
   getQRCode(sessionId) {
