@@ -232,37 +232,67 @@ class WhatsappService {
       console.error(`❌ فشل إرسال الرسالة للرقم ${phoneNumber}:`, error.message);
       throw error;
     }
-  }
-
-  // اختيار أفضل جلسة
-  selectBestSession() {
-    const connectedSessions = Object.keys(this.clients).filter(
-      id => this.statuses[id] === 'connected'
-    );
-    if (connectedSessions.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * connectedSessions.length);
-    return connectedSessions[randomIndex];
-  }
-
-  // إرسال رسالة مع توزيع الحمل
-  async sendMessageWithLoadBalance(phoneNumber, message) {
-    const sessionId = this.selectBestSession();
-    if (!sessionId) throw new Error('لا توجد جلسات واتساب متصلة');
-    return await this.sendMessage(sessionId, phoneNumber, message);
-  }
-
-  // إغلاق جلسة
-  async closeSession(sessionId) {
+  }// إرسال رسالة مباشرة عبر حقن المتصفح لتفادي أخطاء الـ CdpFrame نهائياً
+  async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
-    if (client) {
-      try {
-        await client.destroy();
-      } catch (error) {
-        console.error('خطأ في إغلاق الجلسة:', error);
+    if (!client) throw new Error('الجلسة غير موجودة');
+    if (this.statuses[sessionId] !== 'connected') throw new Error('الجلسة غير متصلة');
+
+    try {
+      const formattedNumber = this.formatPhoneNumber(phoneNumber);
+      const chatId = `${formattedNumber}@c.us`;
+
+      await this.delay(1000);
+      console.log(`🚀 محاولة دفع الرسالة بالحقن المباشر للرقم: ${chatId}`);
+
+      // 🛠️ الحل السحري: تنفيذ الإرسال مباشرة داخل الـ Page Context للواتساب
+      // هذا يتجاوز كود الحزمة المكسور ويستدعي نظام واتساب ويب الداخلي فوراً
+      if (client.pupPage) {
+        await client.pupPage.evaluate(async (jid, text) => {
+          // التحقق من أن كائن مخزن واتساب ويب جاهز في المتصفح بالخلفية
+          if (window.Store && window.Store.Chat) {
+            const chatObj = window.Store.Chat.get(jid);
+            if (chatObj) {
+              await chatObj.sendMessage(text);
+              return true;
+            } else {
+              // إذا لم تكن المحادثة مفتوحة مسبقاً، ننشئها ونرسل الرسالة فوراً
+              const idUser = new window.Store.UserConstructor(jid, { Object: Object });
+              const newChat = await window.Store.Chat.find(idUser);
+              await newChat.sendMessage(text);
+              return true;
+            }
+          }
+          throw new Error('WWebJS Store is not ready yet');
+        }, chatId, message);
+      } else {
+        // طريقة احتياطية في حال عدم توفر الـ pupPage
+        await client.sendMessage(chatId, message);
       }
-      delete this.clients[sessionId];
-      delete this.qrCodes[sessionId];
-      this.statuses[sessionId] = 'closed';
+
+      console.log(`✅ تم خروج الرسالة بنجاح مذهل من السيرفر للرقم ${formattedNumber}`);
+
+      return {
+        status: 'sent',
+        messageId: 'direct_inject_' + Date.now(),
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error(`❌ فشل إرسال الرسالة للرقم ${phoneNumber}:`, error.message);
+      
+      // محاولة أخيرة بالطريقة القياسية للحزمة إذا فشل الحقن المباشر
+      try {
+        console.log("🔄 محاولة الإرسال بالطريقة الاحتياطية القياسية...");
+        const formattedNumber = this.formatPhoneNumber(phoneNumber);
+        const response = await client.sendMessage(`${formattedNumber}@c.us`, message);
+        return {
+          status: 'sent',
+          messageId: response.id?._serialized || 'fallback_sent',
+          timestamp: new Date()
+        };
+      } catch (fallbackError) {
+        throw new Error(`تعذر الإرسال بكلا الطريقتين: ${fallbackError.message}`);
+      }
     }
   }
 
