@@ -40,31 +40,29 @@ class WhatsappService {
       ? path.join('/tmp', 'wwebjs_auth_sessions') 
       : path.join(__dirname, '..', 'wwebjs_auth_sessions');
 
-    const client = new Client({
-      authStrategy: new LocalAuth({ 
-        clientId: sessionId,
-        dataPath: authPath
-      }),
-      authTimeoutMs: 120000, 
-      qrMaxImages: 0,
-      takeoverOnConflict: true, // تفعيل الـ Takeover لتجنب تداخل الجلسات المعلقة
-      webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014580213-alpha.html'
-      },
-      puppeteer: {
-        headless: true, // تغييرها لـ true الصريحة المستقرة
-        executablePath: '/usr/bin/chromium', // 👈 حط المسار اللي طلع لك من أمر which (غالباً بدون -browser)
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--no-zygote',
-          '--single-process'
-        ]
-      }
-    });
+   const client = new Client({
+  authStrategy: new LocalAuth({ 
+    clientId: sessionId,
+    dataPath: authPath
+  }),
+  authTimeoutMs: 120000, 
+  qrMaxImages: 0,
+  takeoverOnConflict: false, // رجعناها false مثل ما كانت بكودك القديم للحماية
+  webVersionCache: {
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html' // 👈 رجعنا نسختك القديمة المعتمدة ضد الحظر
+  },
+  puppeteer: {
+    headless: true,
+    executablePath: '/usr/bin/google-chrome', // 👈 هذا المسار الجديد اللي يشتغل بـ Contabo بدون كراش
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
+  }
+});
 
     // عند ظهور QR Code
     client.on('qr', async (qr) => {
