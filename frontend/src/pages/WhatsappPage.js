@@ -17,11 +17,14 @@ function WhatsappPage() {
   const [testSession, setTestSession] = useState('');
   const intervalRef = useRef(null);
 
+  // 1. جلب جميع الجلسات عند تحميل الصفحة
   useEffect(() => {
-   // جلب جميع الجلسات (المعدلة يدوياً بالتوكن)
+    fetchSessions();
+  }, []);
+
   const fetchSessions = async () => {
     try {
-      const token = localStorage.getItem('token'); // جلب التوكن من كاش المتصفح
+      const token = localStorage.getItem('token');
       const response = await api.get('/whatsapp/sessions', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -33,7 +36,7 @@ function WhatsappPage() {
     }
   };
 
-  // إنشاء جلسة جديدة (إصلاح حظر التوكن المطلوب)
+  // 2. إنشاء جلسة جديدة (خارج الـ useEffect)
   const handleCreateSession = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -42,13 +45,13 @@ function WhatsappPage() {
     setQrCode(null);
 
     try {
-      const token = localStorage.getItem('token'); // 👈 سحب التوكن هنا
+      const token = localStorage.getItem('token');
       await api.post('/whatsapp/session', {
         sessionId: newSession.sessionId,
         phoneNumber: newSession.phoneNumber
       }, {
         headers: {
-          'Authorization': `Bearer ${token}` // 👈 حقنه بالطلب لإلغاء الحظر
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -57,16 +60,15 @@ function WhatsappPage() {
 
       // بدء مراقبة QR Code
       startQRPolling(newSession.sessionId);
-
       fetchSessions();
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ');
+      setError(err.response?.data?.message || 'حدث خطأ في الاتصال بالسيرفر');
     } finally {
       setLoading(false);
     }
   };
 
- // مراقبة QR Code مع تمرير التوكن لحماية الـ Polling
+  // 3. مراقبة QR Code (خارج الـ useEffect)
   const startQRPolling = (sessionId) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -87,7 +89,7 @@ function WhatsappPage() {
           fetchSessions();
         } else if (data.qrCode) {
           setQrCode(data.qrCode);
-          setMessage('📱 amسح QR Code من تطبيق الواتساب');
+          setMessage('📱 امسح QR Code من تطبيق الواتساب');
         }
       } catch (error) {
         console.error('خطأ في جلب QR:', error);
