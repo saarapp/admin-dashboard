@@ -47,19 +47,21 @@ class WhatsappService {
   }),
   authTimeoutMs: 120000, 
   qrMaxImages: 0,
-  takeoverOnConflict: false, // رجعناها false مثل ما كانت بكودك القديم للحماية
+  takeoverOnConflict: true, // تفعيلها مهم حتى لا تعلّق الجلسة بالسيرفر
   webVersionCache: {
     type: 'remote',
-    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html' // 👈 رجعنا نسختك القديمة المعتمدة ضد الحظر
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014580213-alpha.html' // 👈 هذي أحدث نسخة مستقرة ومحمية ضد الحظر وضد الطرد لعام 2026
   },
   puppeteer: {
     headless: true,
-    executablePath: '/usr/bin/google-chrome', // 👈 هذا المسار الجديد اللي يشتغل بـ Contabo بدون كراش
+    executablePath: '/usr/bin/google-chrome', // مسار الجوجل كروم المستقر بـ Contabo
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu'
+      '--disable-gpu',
+      '--no-zygote',
+      '--single-process'
     ]
   }
 });
