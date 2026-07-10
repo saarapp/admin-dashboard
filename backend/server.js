@@ -94,7 +94,8 @@ const whatsappLimiter = rateLimit({
 
 app.use(cors({
   origin: [
-    'https://admin-dashboard-git-main-saar1.vercel.app',
+    'https://admin-dashboard-saar1.vercel.app',              // 👈 إضافة الرابط الرئيسي للوحة
+    'https://admin-dashboard-git-main-saar1.vercel.app',     // رابط الجيت الفرعي
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:8080'
