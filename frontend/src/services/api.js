@@ -1,11 +1,10 @@
 import axios from 'axios';
+import axios from 'axios';
 
-// تحديد الرابط تلقائياً: إذا كنت لوكل يقرأ الـ localhost، وإذا أونلاين يقرأ سيرفر Render مع الـ /api
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-const API_URL = isLocalhost 
-  ? 'http://localhost:5000/api' 
-  : 'http://13.140.130.186:5000';
+// قراءة الرابط من متغيرات البيئة وإضافة /api بالنهاية
+const API_URL = process.env.REACT_APP_API_URL 
+  ? `${process.env.REACT_APP_API_URL}/api`
+  : 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
