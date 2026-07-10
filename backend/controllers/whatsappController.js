@@ -124,7 +124,7 @@ class WhatsappController {
   // إرسال رسالة اختبارية
   static async sendTestMessage(req, res) {
     try {
-      let { sessionId, phoneNumber } = req.body;
+      const { sessionId, phoneNumber } = req.body;
 
       if (!phoneNumber) {
         return res.status(400).json({
@@ -133,29 +133,25 @@ class WhatsappController {
         });
       }
 
-      // 👈 الحل السحري: إذا الجلسة المرسلة مو شغالة، نجيب أول جلسة متصلة وشغالة هسة بالسيرفر تلقائياً
-      if (!sessionId || !whatsappService.isSessionConnected(sessionId)) {
-        const activeSessions = whatsappService.getActiveSessions ? whatsappService.getActiveSessions() : [];
-        if (activeSessions && activeSessions.length > 0) {
-          sessionId = activeSessions[0]; // أخذ أول جلسة شغالة بالخلفية
-        }
-      }
+      console.log(`🚀 محاولة إرسال رسالة اختبارية للجلسة: ${sessionId} إلى الرقم: ${phoneNumber}`);
 
+      // الإرسال المباشر باستخدام الـ sessionId القادم من اللوحة
       const result = await whatsappService.sendMessage(
         sessionId,
         phoneNumber,
         '✅ رسالة اختبارية من لوحة التحكم - نظام تكسي صار يعمل بنجاح تام! 🚀'
       );
 
-      res.json({
+      return res.json({
         status: 'success',
         message: 'تم إرسال الرسالة الاختبارية بنجاح',
         data: result
       });
     } catch (error) {
-      res.status(500).json({
+      console.error('❌ خطأ حقيقي داخل الـ Controller:', error.message);
+      return res.status(500).json({
         status: 'error',
-        message: error.message
+        message: `فشل الإرسال: ${error.message}`
       });
     }
   }
