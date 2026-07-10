@@ -1,12 +1,11 @@
 import axios from 'axios';
-import axios from 'axios';
 
-// قراءة الرابط من متغيرات البيئة وإضافة /api بالنهاية
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+// 👈 أونلاين نخليه يضرب على نفس الدومين الآمن بدون بورت وبدون IP، وفيرسيل تحوله بالخلفية لـ Contabo
 const API_URL = isLocalhost 
   ? 'http://localhost:5000/api' 
-  : 'http://13.140.130.186/api'; // 👈 أزلنا :5000 لأن الـ Nginx سيستقبل على بورت الويب الافتراضي 80
+  : '/api'; 
 
 const api = axios.create({
   baseURL: API_URL,
@@ -15,6 +14,7 @@ const api = axios.create({
   }
 });
 
+// الحفاظ على حقن التوكن (Authorization) تلقائياً مع كل طلب لـ تكسي صار
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -23,6 +23,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// التعامل مع انتهاء صلاحية التوكن وتوجيه المستخدم للـ Login
 api.interceptors.response.use(
   (response) => response,
   (error) => {
