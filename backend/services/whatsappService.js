@@ -47,19 +47,21 @@ class WhatsappService {
       }),
       authTimeoutMs: 120000, 
       qrMaxImages: 0,
-      takeoverOnConflict: false,
+      takeoverOnConflict: true, // تفعيل الـ Takeover لتجنب تداخل الجلسات المعلقة
       webVersionCache: {
         type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017743174-alpha.html'
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014580213-alpha.html'
       },
-   puppeteer: {
-        headless: 'new',
-        executablePath: '/usr/bin/chromium-browser', // توجيه المسار للكروميوم المثبت بـ Contabo
+      puppeteer: {
+        headless: true, // تغييرها لـ true الصريحة المستقرة
+        executablePath: '/usr/bin/chromium', // 👈 حط المسار اللي طلع لك من أمر which (غالباً بدون -browser)
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--no-zygote',
+          '--single-process'
         ]
       }
     });
