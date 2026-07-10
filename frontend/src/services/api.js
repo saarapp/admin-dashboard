@@ -5,7 +5,7 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 
 const API_URL = isLocalhost 
   ? 'http://localhost:5000/api' 
-  : 'https://admin-dashboard-production-2257.up.railway.app/api';
+  : 'http://13.140.130.186:5000';
 
 const api = axios.create({
   baseURL: API_URL,
