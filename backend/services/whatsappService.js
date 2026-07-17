@@ -185,7 +185,7 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 🛡️ النسخة المحصنة ضد الحظر لعام 2026 - محاكاة بشرية كاملة وتأخير ذكي
+  // 🛡️ إرسال رسالة مع مكافحة الحظر (النسخة الأصلية المحدثة لتجنب التعليق)
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
 
@@ -201,38 +201,41 @@ class WhatsappService {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
       const chatId = `${formattedNumber}@c.us`;
 
-      // 1️⃣ خدعة التأخير الأساسية: فصل زمني عشوائي مفرود (بين 3 إلى 6 ثواني) قبل بدء أي حركة
-      const initialDelay = Math.floor(Math.random() * 3000) + 3000;
+      // 1. تأخير عشوائي قبل البدء (1-3 ثواني)
+      const initialDelay = Math.floor(Math.random() * 2000) + 1000;
       await this.delay(initialDelay);
 
-      // تأمين محاكاة السلوك البشري بالكامل داخل try-catch لتفادي أي تعليق
+      // تأمين الخدع البصرية بداخل بلوك آمن حتى لو ضرب المتصفح خطأ، ما يطير الـ Delay
       try {
-        // 2️⃣ محاكاة فتح وقراءة المحادثة
-        const chat = await client.getChatById(chatId);
-        await chat.sendSeen(); // يخليها "تمت القراءة" باللون الأزرق كأنه فتحها
-        await this.delay(Math.floor(Math.random() * 1000) + 1000); // إنتظار ثانية ثانية ونص كأنه يقرأ
+        // 2. محاكاة "مشاهدة المحادثة" عبر جلب الـ Chat بطريقة مخففة لا تسبب كراش
+        const chat = await client.getContactById(chatId).then(contact => contact.getChat());
 
-        // 3️⃣ تشغيل إشارة "جاري الكتابة... Typing"
+        // 3. تأخير قصير (1-2 ثانية) كأنه يقرأ
+        await this.delay(Math.floor(Math.random() * 1000) + 1000);
+
+        // 4. محاكاة "جاري الكتابة..."
         await chat.sendStateTyping();
 
-        // 4️⃣ وقت الكتابة العشوائي (بين 3 إلى 5 ثواني) ليصدق نظام واتساب أن هناك يد بشرية تكتب
-        const typingTime = Math.floor(Math.random() * 2000) + 3000;
+        // 5. تأخير حسب طول الرسالة (كأنه يكتب فعلاً مالتك القديمة)
+        const typingTime = Math.min(message.length * 50, 8000) + Math.floor(Math.random() * 2000) + 2000;
         await this.delay(typingTime);
-        
-        // إيقاف إشارة الكتابة قبل كبس زر الإرسال مباشرة
+
+        // 6. إيقاف "جاري الكتابة"
         await chat.clearState();
       } catch (browserError) {
-        console.log(`⚠️ تنبيه حماية: تخطي التمويه البصري لتسريع الطابور: ${browserError.message}`);
+        console.log(`⚠️ تنبيه تمويه: المتصفح تخطى التايبينج لسلامة الاتصال، وجاري تطبيق الـ Delay الإجباري.`);
+        // تأمين فاصل زمني إجباري بديل في حال فشل المتصفح حتى لا ترسل دفعة واحدة
+        await this.delay(4000);
       }
 
-      // 5️⃣ كبس زر إرسال الرسالة الفعلي 🚀
+      // 7. إرسال الرسالة الفعلي
       const response = await client.sendMessage(chatId, message);
 
-      // 6️⃣ تأخير أمان إجباري بعد الإرسال (بين 2 إلى 4 ثواني) قبل الانتقال للكابتن التالي
+      // 8. تأخير بعد الإرسال (2-4 ثواني) مالتك الأصلية ضد التتابع الروبوتي
       const afterDelay = Math.floor(Math.random() * 2000) + 2000;
       await this.delay(afterDelay);
 
-      console.log(`✅ [تكسي صار] طارت الرسالة للرقم ${formattedNumber} بأمان وحماية كاملة.`);
+      console.log(`✅ تم إرسال رسالة للرقم ${formattedNumber}`);
 
       return {
         status: 'sent',
