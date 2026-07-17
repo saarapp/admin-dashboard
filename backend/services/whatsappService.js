@@ -185,7 +185,7 @@ class WhatsappService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 🛡️ إرسال رسالة مع دمج كافة خدع وحيل مكافحة الحظر مالتك القديمة بالكامل
+  // 🛡️ إرسال رسالة مع دمج كافة خدع مكافحة الحظر وتأمين الإرسال الفوري
   async sendMessage(sessionId, phoneNumber, message) {
     const client = this.clients[sessionId];
 
@@ -201,34 +201,39 @@ class WhatsappService {
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
       const chatId = `${formattedNumber}@c.us`;
 
-      // 1. تأخير عشوائي قبل البدء (1-3 ثواني)
+      // 1. تأخير عشوائي قوي قبل البدء (1-3 ثواني) - الخدعة الأساسية لحماية الحساب
       const initialDelay = Math.floor(Math.random() * 2000) + 1000;
       await this.delay(initialDelay);
 
-      // 2. محاكاة "مشاهدة المحادثة"
-      const chat = await client.getChatById(chatId);
+      // تأمين محاكاة الكتابة والمشاهدة بداخل بلوك خاص حتى لا تتسبب في تعليق الإرسال
+      try {
+        // 2. محاكاة "مشاهدة المحادثة"
+        const chat = await client.getChatById(chatId);
 
-      // 3. تأخير قصير (1-2 ثانية) كأنه يقرأ
-      await this.delay(Math.floor(Math.random() * 1000) + 1000);
+        // 3. تأخير قصير (1 ثانية) كأنه يقرأ
+        await this.delay(Math.floor(Math.random() * 500) + 500);
 
-      // 4. محاكاة "جاري الكتابة..."
-      await chat.sendStateTyping();
+        // 4. محاكاة "جاري الكتابة..."
+        await chat.sendStateTyping();
 
-      // 5. تأخير حسب طول الرسالة (كأنه يكتب فعلاً)
-      const typingTime = Math.min(message.length * 50, 8000) + Math.floor(Math.random() * 2000) + 2000;
-      await this.delay(typingTime);
+        // 5. تأخير حسب طول الرسالة
+        const typingTime = Math.min(message.length * 30, 4000) + Math.floor(Math.random() * 1000) + 1000;
+        await this.delay(typingTime);
+        
+        // إيقاف "جاري الكتابة" قبل ضغط زر الإرسال
+        await chat.clearState();
+      } catch (browserError) {
+        console.log(`⚠️ تنبيه: تخطي محاكاة الكتابة لتفادي تعليق السيرفر: ${browserError.message}`);
+      }
 
-      // 6. إرسال الرسالة الحقيقي
+      // 6. إرسال الرسالة الفعلي (السطر الحاسم)
       const response = await client.sendMessage(chatId, message);
 
-      // 7. إيقاف "جاري الكتابة"
-      await chat.clearState();
-
-      // 8. تأخير بعد الإرسال (2-4 ثواني)
-      const afterDelay = Math.floor(Math.random() * 2000) + 2000;
+      // 7. تأخير أمان بعد الإرسال (2-3 ثواني) لعدم تتابع الرسائل بشكل روبوتي
+      const afterDelay = Math.floor(Math.random() * 1000) + 2000;
       await this.delay(afterDelay);
 
-      console.log(`✅ تم إرسال رسالة للرقم ${formattedNumber} (كتابة: ${typingTime}ms)`);
+      console.log(`✅ تم إرسال رسالة بنجاح للرقم ${formattedNumber}`);
 
       return {
         status: 'sent',
